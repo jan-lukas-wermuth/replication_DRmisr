@@ -1,0 +1,73 @@
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+decision_spearman_norm <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+  set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+  XY <- mnorm::rmnorm(Ti, mean = rep(0, 2), sigma = matrix(c(1, rho, rho, 1), ncol=2))
+  X <- XY[,1]
+  Y <- XY[,2]
+  spearman <- 12 * Ti / Ti^3 * cov(X, Y, method = "spearman")
+  # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+  G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+  G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+  G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+  g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+  g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+  # Calculate Marc's variance estimator
+  G_XX <- G_X(X)
+  G_YY <- G_Y(Y)
+  var_hat <- Ti^2 / (Ti - 1)^2 * 9 * mean((4 * (g_x(X) + g_y(Y) + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman)^2)
+  as.numeric(data.table::between(6/pi*asin(rho/2), spearman + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), spearman + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+}
+
+decision_spearman_norm <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+  set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+  XY <- mnorm::rmnorm(Ti, mean = rep(0, 2), sigma = matrix(c(1, rho, rho, 1), ncol=2))
+  X <- XY[,1]
+  Y <- XY[,2]
+  spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+  # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+  G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+  G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+  G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+  g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+  g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+  # Calculate Marc's variance estimator
+  G_XX <- G_X(X)
+  G_YY <- G_Y(Y)
+  var_hat <- 9 * mean((4 * (g_x(X) + g_y(Y) + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman)^2)
+  as.numeric(data.table::between(6/pi*asin(rho/2), spearman + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), spearman + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+}
+
+stopCluster(cl)
+
+
+
+bias_spearman_norm1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+  set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+  XY <- mnorm::rmnorm(Ti, mean = rep(0, 2), sigma = matrix(c(1, rho, rho, 1), ncol=2))
+  X <- XY[,1]
+  Y <- XY[,2]
+  spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+  spearman - 6/pi*asin(rho/2)
+}
+
+bias_spearman_norm2 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+  set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+  XY <- mnorm::rmnorm(Ti, mean = rep(0, 2), sigma = matrix(c(1, rho, rho, 1), ncol=2))
+  X <- XY[,1]
+  Y <- XY[,2]
+  spearman <- 12 / Ti^2 * cov(X, Y, method = "spearman")
+  spearman - 6/pi*asin(rho/2)
+}
+
+bias_spearman_norm3 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+  set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+  XY <- mnorm::rmnorm(Ti, mean = rep(0, 2), sigma = matrix(c(1, rho, rho, 1), ncol=2))
+  X <- XY[,1]
+  Y <- XY[,2]
+  spearman <- cor(X, Y, method = "spearman")
+  spearman - 6/pi*asin(rho/2)
+}
+
+

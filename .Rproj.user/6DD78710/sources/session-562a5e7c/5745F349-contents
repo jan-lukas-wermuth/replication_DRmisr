@@ -1,0 +1,603 @@
+library(mnorm)
+library(DescTools)
+library(data.table)
+library(tsDyn)
+library(doParallel)
+library(doRNG)
+library(foreach)
+
+# source(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/RCode/LRV_estim.R") # Source Long-Run Variance estimation function
+
+################################## Rank autocorrelations: Simulations ##################################
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_t4_CIs_short.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_t1_CIs_short.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_t4_CIs_short.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_t1_CIs_short.RData")
+
+# Specify general variables that are needed in all steps
+MC <- 1000
+alpha <- 0.1
+DGPs <- c("Norm", "t4", "Cauchy", "Norm_Fis", "t4_Fis", "Cauchy_Fis")
+Pearson_DGPs <- c("Norm", "t4", "t1")
+SampleSizes <- c(50, 200, 800)
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+#### Step 1: IID processes (independence across elements within each process) -- Proposition 2
+## continuous distributions
+# rhos <- c(-0.95, -0.59, 0, 0.59, 0.95)
+
+decision_kendall_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+
+# Start cluster for parallel computing: Kendall
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_kendall_norm <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      XY <- mnorm::rmnorm(Ti, mean = rep(0, 2), sigma = matrix(c(1, rho, rho, 1), ncol=2))
+      X <- XY[,1]
+      Y <- XY[,2]
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      # Calculate Marc's variance estimator
+      var_hat <- 4 * mean((4 * G_XY(X, Y) - 2 * (G_X(X) + G_Y(Y)) + 1 - kendall)^2)
+      as.numeric(data.table::between(2/pi*asin(rho), kendall + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), kendall + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_kendall_norm_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      XY <- mnorm::rmnorm(Ti, mean = rep(0, 2), sigma = matrix(c(1, rho, rho, 1), ncol=2))
+      X <- XY[,1]
+      Y <- XY[,2]
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      kendall_fis <- atanh(kendall)
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      # Calculate Marc's variance estimator
+      var_hat <- 4 * mean((4 * G_XY(X, Y) - 2 * (G_X(X) + G_Y(Y)) + 1 - kendall)^2)
+      as.numeric(data.table::between(2/pi*asin(rho), tanh(kendall_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - kendall^2)), tanh(kendall_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - kendall^2))))
+    }
+    decision_kendall_t4 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rt(Ti, df = 4)
+      Y <- rho * X + sqrt(1 - rho^2) * rt(Ti, df = 4)
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      # Calculate Marc's variance estimator
+      var_hat <- 4 * mean((4 * G_XY(X, Y) - 2 * (G_X(X) + G_Y(Y)) + 1 - kendall)^2)
+      as.numeric(data.table::between(taus_t4[k], kendall + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), kendall + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_kendall_t4_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rt(Ti, df = 4)
+      Y <- rho * X + sqrt(1 - rho^2) * rt(Ti, df = 4)
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      kendall_fis <- atanh(kendall)
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      # Calculate Marc's variance estimator
+      var_hat <- 4 * mean((4 * G_XY(X, Y) - 2 * (G_X(X) + G_Y(Y)) + 1 - kendall)^2)
+      as.numeric(data.table::between(taus_t4[k], tanh(kendall_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - kendall^2)), tanh(kendall_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - kendall^2))))
+    }
+    decision_kendall_array["Norm", as.character(Ti),,as.character(rho)] <- decision_kendall_norm
+    decision_kendall_array["t4", as.character(Ti),,as.character(rho)] <- decision_kendall_t4
+    decision_kendall_array["Norm_Fis", as.character(Ti),,as.character(rho)] <- decision_kendall_norm_fis
+    decision_kendall_array["t4_Fis", as.character(Ti),,as.character(rho)] <- decision_kendall_t4_fis
+  }
+}
+
+# rhos <- c(-0.985, -0.52, 0, 0.52, 0.985)
+
+decision_kendall_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_kendall_t1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rt(Ti, df = 1)
+      Y <- rho * X + sqrt(1 - rho^2) * rt(Ti, df = 1)
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      # Calculate Marc's variance estimator
+      var_hat <- 4 * mean((4 * G_XY(X, Y) - 2 * (G_X(X) + G_Y(Y)) + 1 - kendall)^2)
+      as.numeric(data.table::between(taus_t1[k], kendall + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), kendall + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_kendall_t1_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rt(Ti, df = 1)
+      Y <- rho * X + sqrt(1 - rho^2) * rt(Ti, df = 1)
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      kendall_fis <- atanh(kendall)
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      # Calculate Marc's variance estimator
+      var_hat <- 4 * mean((4 * G_XY(X, Y) - 2 * (G_X(X) + G_Y(Y)) + 1 - kendall)^2)
+      as.numeric(data.table::between(taus_t1[k], tanh(kendall_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - kendall^2)), tanh(kendall_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - kendall^2))))
+    }
+    decision_kendall_array["Cauchy", as.character(Ti),,as.character(rho)] <- decision_kendall_t1
+    decision_kendall_array["Cauchy_Fis", as.character(Ti),,as.character(rho)] <- decision_kendall_t1_fis
+  }
+}
+stopCluster(cl)
+save(decision_kendall_array, file = "/home/fuchs/agmisc/wermuth/Marc/Kendall_coverage.RData")
+
+## Spearman takes so long we need different jobs on the cluster
+rm(list = ls())
+MC <- 1000
+alpha <- 0.1
+SampleSizes <- c(50, 200, 800)
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+# rhos <- c(-0.81, -0.42, 0, 0.42, 0.81)
+
+decision_spearman_array_norm <- array(data = NA, dim = c(length(SampleSizes), MC, length(rhos)), dimnames = list(SampleSizes, 1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_spearman_norm <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      XY <- mnorm::rmnorm(Ti, mean = rep(0, 2), sigma = matrix(c(1, rho, rho, 1), ncol=2))
+      X <- XY[,1]
+      Y <- XY[,2]
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+      g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+      # Calculate Marc's variance estimator
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      var_hat <- 9 * mean((4 * (g_x(X) + g_y(Y) + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman)^2)
+      as.numeric(data.table::between(6/pi*asin(rho/2), spearman + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), spearman + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_spearman_array_norm[as.character(Ti),,as.character(rho)] <- decision_spearman_norm
+  }
+}
+stopCluster(cl)
+save(decision_spearman_array_norm, file = "/home/fuchs/agmisc/wermuth/Marc/Spearman_coverage_norm.RData")
+
+rm(list = ls())
+MC <- 1000
+alpha <- 0.1
+SampleSizes <- c(50, 200, 800)
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+decision_spearman_array_norm_fis <- array(data = NA, dim = c(length(SampleSizes), MC, length(rhos)), dimnames = list(SampleSizes, 1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_spearman_norm_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      XY <- mnorm::rmnorm(Ti, mean = rep(0, 2), sigma = matrix(c(1, rho, rho, 1), ncol=2))
+      X <- XY[,1]
+      Y <- XY[,2]
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      spearman_fis <- atanh(spearman)
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+      g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+      # Calculate Marc's variance estimator
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      var_hat <- 9 * mean((4 * (g_x(X) + g_y(Y) + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman)^2)
+      as.numeric(data.table::between(6/pi*asin(rho/2), tanh(spearman_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - spearman^2)), tanh(spearman_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - spearman^2))))
+    }
+    decision_spearman_array_norm_fis[as.character(Ti),,as.character(rho)] <- decision_spearman_norm_fis
+  }
+} 
+stopCluster(cl)
+
+save(decision_spearman_array_norm_fis, file = "/home/fuchs/agmisc/wermuth/Marc/Spearman_coverage_norm_fis.RData")
+
+rm(list = ls())
+MC <- 1000
+alpha <- 0.1
+SampleSizes <- c(50, 200, 800)
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+load(file = "/home/fuchs/agmisc/wermuth/Marc/rhos_t4_CIs.RData")
+decision_spearman_array_t4 <- array(data = NA, dim = c(length(SampleSizes), MC, length(rhos)), dimnames = list(SampleSizes, 1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_spearman_t4 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rt(Ti, df = 4)
+      Y <- rho * X + sqrt(1 - rho^2) * rt(Ti, df = 4)
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+      g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+      # Calculate Marc's variance estimator
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      var_hat <- 9 * mean((4 * (g_x(X) + g_y(Y) + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman)^2)
+      as.numeric(data.table::between(rhos_t4[k], spearman + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), spearman + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_spearman_array_t4[as.character(Ti),,as.character(rho)] <- decision_spearman_t4
+  }
+} 
+stopCluster(cl)
+
+save(decision_spearman_array_t4, file = "/home/fuchs/agmisc/wermuth/Marc/Spearman_coverage_t4.RData")
+
+rm(list = ls())
+MC <- 1000
+alpha <- 0.1
+SampleSizes <- c(50, 200, 800)
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+load(file = "/home/fuchs/agmisc/wermuth/Marc/rhos_t4_CIs.RData")
+decision_spearman_array_t4_fis <- array(data = NA, dim = c(length(SampleSizes), MC, length(rhos)), dimnames = list(SampleSizes, 1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_spearman_t4_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rt(Ti, df = 4)
+      Y <- rho * X + sqrt(1 - rho^2) * rt(Ti, df = 4)
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      spearman_fis <- atanh(spearman)
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+      g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+      # Calculate Marc's variance estimator
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      var_hat <- 9 * mean((4 * (g_x(X) + g_y(Y) + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman)^2)
+      as.numeric(data.table::between(rhos_t4[k], tanh(spearman_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - spearman^2)), tanh(spearman_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - spearman^2))))
+    }
+    decision_spearman_array_t4_fis[as.character(Ti),,as.character(rho)] <- decision_spearman_t4_fis
+  }
+} 
+stopCluster(cl)
+
+save(decision_spearman_array_t4_fis, file = "/home/fuchs/agmisc/wermuth/Marc/Spearman_coverage_t4_fis.RData")
+
+rm(list = ls())
+MC <- 1000
+alpha <- 0.1
+SampleSizes <- c(50, 200, 800)
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+load(file = "/home/fuchs/agmisc/wermuth/Marc/rhos_t1_CIs.RData")
+
+decision_spearman_array_t1 <- array(data = NA, dim = c(length(SampleSizes), MC, length(rhos)), dimnames = list(SampleSizes, 1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_spearman_t1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rt(Ti, df = 1)
+      Y <- rho * X + sqrt(1 - rho^2) * rt(Ti, df = 1)
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+      g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+      # Calculate Marc's variance estimator
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      var_hat <- 9 * mean((4 * (g_x(X) + g_y(Y) + G_XX * G_YY - G_XX - G_YY) + 1 - spearman)^2)
+      as.numeric(data.table::between(rhos_t1[k], spearman + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), spearman + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_spearman_array_t1[as.character(Ti),,as.character(rho)] <- decision_spearman_t1
+  }
+} 
+stopCluster(cl)
+
+save(decision_spearman_array_t1, file = "/home/fuchs/agmisc/wermuth/Marc/Spearman_coverage_t1.RData")
+
+rm(list = ls())
+MC <- 1000
+alpha <- 0.1
+SampleSizes <- c(50, 200, 800)
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+load(file = "/home/fuchs/agmisc/wermuth/Marc/rhos_t1_CIs.RData")
+
+decision_spearman_array_t1_fis <- array(data = NA, dim = c(length(SampleSizes), MC, length(rhos)), dimnames = list(SampleSizes, 1:MC, rhos)) # Initialize results array
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_spearman_t1_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rt(Ti, df = 1)
+      Y <- rho * X + sqrt(1 - rho^2) * rt(Ti, df = 1)
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      spearman_fis <- atanh(spearman)
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+      g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+      # Calculate Marc's variance estimator
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      var_hat <- 9 * mean((4 * (g_x(X) + g_y(Y) + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman)^2)
+      as.numeric(data.table::between(rhos_t1[k], tanh(spearman_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - spearman^2)), tanh(spearman_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - spearman^2))))
+    }
+    decision_spearman_array_t1_fis[as.character(Ti),,as.character(rho)] <- decision_spearman_t1_fis
+  }
+} 
+stopCluster(cl)
+
+save(decision_spearman_array_t1_fis, file = "/home/fuchs/agmisc/wermuth/Marc/Spearman_coverage_t1_fis.RData")
+
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_pearson_norm <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      XY <- mnorm::rmnorm(Ti, mean = rep(0, 2), sigma = matrix(c(1, rho, rho, 1), ncol=2))
+      X <- XY[,1]
+      Y <- XY[,2]
+      pearson_test <- cor.test(X, Y, conf.level = 0.9)
+      as.numeric(data.table::between(rho, pearson_test$conf.int[1], pearson_test$conf.int[2]))
+    }
+    decision_pearson_t4 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rt(Ti, df = 4)
+      Y <- rho * X + sqrt(1 - rho^2) * rt(Ti, df = 4)
+      pearson_test <- cor.test(X, Y, conf.level = 0.9)
+      as.numeric(data.table::between(rho, pearson_test$conf.int[1], pearson_test$conf.int[2]))
+    }
+    decision_pearson_t1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rt(Ti, df = 1)
+      Y <- rho * X + sqrt(1 - rho^2) * rt(Ti, df = 1)
+      pearson_test <- cor.test(X, Y, conf.level = 0.9)
+      as.numeric(data.table::between(rho, pearson_test$conf.int[1], pearson_test$conf.int[2]))
+    }
+    decision_pearson_array["Norm", as.character(Ti),,as.character(rho)] <- decision_pearson_norm
+    decision_pearson_array["t4", as.character(Ti),,as.character(rho)] <- decision_pearson_t4
+    decision_pearson_array["t1", as.character(Ti),,as.character(rho)] <- decision_pearson_t4
+  }
+} 
+
+stopCluster(cl)
+
+save(decision_kendall_array, file = "/home/fuchs/agmisc/wermuth/Marc/Kendall_coverage.RData")
+save(decision_spearman_array, file = "/home/fuchs/agmisc/wermuth/Marc/Spearman_coverage.RData")
+save(decision_pearson_array, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Pearson_coverage.RData")
+
+
+################################## Rank autocorrelations: Simulations ##################################
+load(file = "/home/fuchs/agmisc/wermuth/Marc/taus_TS_norm_CIs.RData")
+load(file = "/home/fuchs/agmisc/wermuth/Marc/taus_TS_t4_CIs.RData")
+load(file = "/home/fuchs/agmisc/wermuth/Marc/taus_TS_t1_CIs.RData")
+load(file = "/home/fuchs/agmisc/wermuth/Marc/rhos_TS_norm_CIs.RData")
+load(file = "/home/fuchs/agmisc/wermuth/Marc/rhos_TS_t4_CIs.RData")
+load(file = "/home/fuchs/agmisc/wermuth/Marc/rhos_TS_t1_CIs.RData")
+
+source(file = "/home/fuchs/agmisc/wermuth/Marc/LRV_estim.R")
+
+# Specify general variables that are needed in all steps
+MC <- 1000
+alpha <- 0.1
+DGPs <- c("Norm", "t4", "Cauchy", "Norm_Fis", "t4_Fis", "Cauchy_Fis")
+SampleSizes <- c(50, 200, 800)
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+#### Step 2: Time Series processes
+## continuous distributions
+# rhos <- c(-0.95, -0.59, 0, 0.59, 0.95)
+
+decision_kendall_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+decision_spearman_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+
+# Start cluster for parallel computing: Kendall
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos){
+  for (Ti in SampleSizes){
+    decision_kendall_norm <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = rnorm)
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = rnorm)
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- Tau_LRV(X, Y, kendall = kendall, bandwidth = "Dehling")
+      as.numeric(data.table::between(taus_TS_norm[as.character(rho)], kendall + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), kendall + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_kendall_norm_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = rnorm)
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = rnorm)
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      kendall_fis <- atanh(kendall)
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- Tau_LRV(X, Y, kendall = kendall, bandwidth = "Dehling")
+      as.numeric(data.table::between(taus_TS_norm[as.character(rho)], tanh(kendall_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - kendall^2)), tanh(kendall_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - kendall^2))))
+    }
+    decision_kendall_t4 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 4))
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 4))
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- Tau_LRV(X, Y, kendall = kendall, bandwidth = "Dehling")
+      as.numeric(data.table::between(taus_TS_t4[as.character(rho)], kendall + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), kendall + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_kendall_t4_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 4))
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 4))
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      kendall_fis <- atanh(kendall)
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- Tau_LRV(X, Y, kendall = kendall, bandwidth = "Dehling")
+      as.numeric(data.table::between(taus_TS_t4[as.character(rho)], tanh(kendall_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - kendall^2)), tanh(kendall_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - kendall^2))))
+    }
+    decision_kendall_t1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 1))
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 1))
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- Tau_LRV(X, Y, kendall = kendall, bandwidth = "Dehling")
+      as.numeric(data.table::between(taus_TS_t1[as.character(rho)], kendall + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), kendall + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_kendall_t1_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 1))
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 1))
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      kendall <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      kendall_fis <- atanh(kendall)
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- Tau_LRV(X, Y, kendall = kendall, bandwidth = "Dehling")
+      as.numeric(data.table::between(taus_TS_t1[as.character(rho)], tanh(kendall_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - kendall^2)), tanh(kendall_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - kendall^2))))
+    }
+    decision_kendall_array["Norm", as.character(Ti),,as.character(rho)] <- decision_kendall_norm
+    decision_kendall_array["t4", as.character(Ti),,as.character(rho)] <- decision_kendall_t4
+    decision_kendall_array["Cauchy", as.character(Ti),,as.character(rho)] <- decision_kendall_t1
+    decision_kendall_array["Norm_Fis", as.character(Ti),,as.character(rho)] <- decision_kendall_norm_fis
+    decision_kendall_array["t4_Fis", as.character(Ti),,as.character(rho)] <- decision_kendall_t4_fis
+    decision_kendall_array["Cauchy_Fis", as.character(Ti),,as.character(rho)] <- decision_kendall_t1_fis
+    
+    decision_spearman_norm <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = rnorm)
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = rnorm)
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- SRho_LRV(X, Y, spearman = spearman, bandwidth = "Dehling")
+      as.numeric(data.table::between(rhos_TS_norm[as.character(rho)], spearman + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), spearman + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_spearman_norm_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = rnorm)
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = rnorm)
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      spearman_fis <- atanh(spearman)
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- SRho_LRV(X, Y, spearman = spearman, bandwidth = "Dehling")
+      as.numeric(data.table::between(rhos_TS_norm[as.character(rho)], tanh(spearman_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - spearman^2)), tanh(spearman_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - spearman^2))))
+    }
+    decision_spearman_t4 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 4))
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 4))
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- SRho_LRV(X, Y, spearman = spearman, bandwidth = "Dehling")
+      as.numeric(data.table::between(rhos_TS_t4[as.character(rho)], spearman + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), spearman + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_spearman_t4_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 4))
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 4))
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      spearman_fis <- atanh(spearman)
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- SRho_LRV(X, Y, spearman = spearman, bandwidth = "Dehling")
+      as.numeric(data.table::between(rhos_TS_t4[as.character(rho)], tanh(spearman_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - spearman^2)), tanh(spearman_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - spearman^2))))
+    }
+    decision_spearman_t1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 1))
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 1))
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- SRho_LRV(X, Y, spearman = spearman, bandwidth = "Dehling")
+      as.numeric(data.table::between(rhos_TS_t1[as.character(rho)], spearman + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), spearman + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_spearman_t1_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 1))
+      Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = Ti, rand.gen = function(n) rt(n, df = 1))
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      spearman_fis <- atanh(spearman)
+      # Calculate Marc's variance estimator for time series:
+      var_hat <- SRho_LRV(X, Y, spearman = spearman, bandwidth = "Dehling")
+      as.numeric(data.table::between(rhos_TS_t1[as.character(rho)], tanh(spearman_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - spearman^2)), tanh(spearman_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/sqrt(1 - spearman^2))))
+    }
+    decision_spearman_array["Norm", as.character(Ti),,as.character(rho)] <- decision_spearman_norm
+    decision_spearman_array["t4", as.character(Ti),,as.character(rho)] <- decision_spearman_t4
+    decision_spearman_array["Cauchy", as.character(Ti),,as.character(rho)] <- decision_spearman_t1
+    decision_spearman_array["Norm_Fis", as.character(Ti),,as.character(rho)] <- decision_spearman_norm_fis
+    decision_spearman_array["t4_Fis", as.character(Ti),,as.character(rho)] <- decision_spearman_t4_fis
+    decision_spearman_array["Cauchy_Fis", as.character(Ti),,as.character(rho)] <- decision_spearman_t1_fis
+  }
+} 
+
+stopCluster(cl)
+
+save(decision_kendall_array, file = "/home/fuchs/agmisc/wermuth/Marc/Kendall_coverage_TS.RData")
+save(decision_spearman_array, file = "/home/fuchs/agmisc/wermuth/Marc/Spearman_coverage_TS.RData")

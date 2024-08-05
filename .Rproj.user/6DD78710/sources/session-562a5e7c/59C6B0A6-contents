@@ -1,0 +1,360 @@
+########################## Tau Independent Long-Run Variance Estimation #############################
+Tau_ind_LRV <- function(X, Y, bandwidth = "Dehling"){
+  if (length(X) != length(Y)){stop("X and Y must have equal length")}
+  n <- length(X)
+  
+  # Determine bandwidth
+  if (bandwidth == "StockWatson"){b <- floor(0.75 * n^(1/3))}
+  else if (bandwidth == "Dehling"){b <- floor(2 * n^(1/3))}
+  else stop("Please insert a valid bandwith calculation method")
+  
+  # Calculate weights
+  h <- 1:(n-1)
+  w <- pmax(1 - abs(h) / (b + 1), 0)
+  
+  # Calculate autocovariances in a vector with row = lag
+  x_autoc <- (n - 1) / n * acf((rank(X) - 0.5) / n - 0.5, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # This is the acf of the demeaned grade. Therefore, demean = FALSE
+  y_autoc <- (n - 1) / n * acf((rank(Y) - 0.5) / n - 0.5, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # This is the acf of the demeaned grade. Therefore, demean = FALSE
+  
+  # Calculate estimator of LRV for tau under independence
+  Tau_ind_LRV <- 64 * sum(x_autoc[1] * y_autoc[1], 2 * (w * x_autoc[-1] * y_autoc[-1]))
+  
+  return(Tau_ind_LRV)
+}
+
+########################## Rho Independent Long-Run Variance Estimation #############################
+Rho_ind_LRV <- function(X, Y, bandwidth = "Dehling"){
+  if (length(X) != length(Y)){stop("X and Y must have equal length")}
+  n <- length(X)
+  
+  # Determine bandwidth
+  if (bandwidth == "StockWatson"){b <- floor(0.75 * n^(1/3))}
+  else if (bandwidth == "Dehling"){b <- floor(2 * n^(1/3))}
+  else stop("Please insert a valid bandwith calculation method")
+  
+  # Calculate weights
+  h <- 1:(n-1)
+  w <- pmax(1 - abs(h) / (b + 1), 0)
+  
+  # Calculate autocovariances in a vector with row = lag
+  x_autoc <- acf(X, plot = FALSE, type = "correlation", demean = TRUE, lag.max = n - 1)$acf 
+  y_autoc <- acf(Y, plot = FALSE, type = "correlation", demean = TRUE, lag.max = n - 1)$acf 
+  
+  # Calculate estimator of LRV for rho under independence
+  Rho_ind_LRV <- sum(x_autoc[1] * y_autoc[1], 2 * (w * x_autoc[-1] * y_autoc[-1]))
+  
+  return(Rho_ind_LRV)
+}
+
+########################## Rhob Independent Long-Run Variance Estimation #############################
+Rhob_ind_LRV <- function(X, Y, bandwidth = "Dehling"){
+  if (length(X) != length(Y)){stop("X and Y must have equal length")}
+  n <- length(X)
+  
+  # Determine bandwidth
+  if (bandwidth == "StockWatson"){b <- floor(0.75 * n^(1/3))}
+  else if (bandwidth == "Dehling"){b <- floor(2 * n^(1/3))}
+  else stop("Please insert a valid bandwith calculation method")
+  
+  # Calculate weights
+  h <- 1:(n-1)
+  w <- pmax(1 - abs(h) / (b + 1), 0)
+  
+  # Calculate Tie Probabilities
+  ties_x <- 0
+  ties_y <- 0
+  for (i in 3:n) {
+    for (j in 2:(i - 1)) {
+      for (k in 1:(j - 1)) {
+        ties_x <- ties_x + ifelse(X[i] == X[j] & X[j] == X[k], 1, 0)
+        ties_y <- ties_y + ifelse(Y[i] == Y[j] & Y[j] == Y[k], 1, 0)
+      }
+    }
+  }
+  ties_x <- ties_x / choose(n, 3)
+  ties_y <- ties_y / choose(n, 3)
+  
+  # Calculate autocovariances in a vector with row = lag
+  x_autoc <- 12 * (n - 1) / n * acf((rank(X) - 0.5) / n - 0.5, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf / (1 - ties_x) # This is the acf of the demeaned grade. Therefore, demean = FALSE
+  y_autoc <- 12 * (n - 1) / n * acf((rank(Y) - 0.5) / n - 0.5, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf / (1 - ties_y) # This is the acf of the demeaned grade. Therefore, demean = FALSE
+  
+  # Calculate estimator of LRV for rho_b under independence
+  Rhob_ind_LRV <- sum(x_autoc[1] * y_autoc[1], 2 * (w * x_autoc[-1] * y_autoc[-1]))
+  
+  return(Rhob_ind_LRV)
+}
+
+
+########################## Tau Long-Run Variance Estimation #############################
+Tau_LRV <- function(X, Y, kendall, bandwidth = "Dehling"){
+  if (length(X) != length(Y)){stop("X and Y must have equal length")}
+  n <- length(X)
+  
+  # Determine bandwidth
+  if (bandwidth == "StockWatson"){b <- floor(0.75 * n^(1/3))}
+  else if (bandwidth == "Dehling"){b <- floor(2 * n^(1/3))}
+  else stop("Please insert a valid bandwith calculation method")
+  
+  # Calculate weights
+  h <- 1:(n-1)
+  w <- pmax(1 - abs(h) / (b + 1), 0)
+  
+  # Need to define helper functions
+  G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+  G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+  G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+  
+  # Define kernel realizations
+  k_XY <- 4 * G_XY(X, Y) - 2 * (G_X(X) + G_Y(Y)) + 1 - kendall
+  
+  # Calculate autocovariances in a vector with row = lag
+  k_XY_autoc <- (n - 1) / n * acf(k_XY, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # k_XY has mean 0. Therefore, demean = FALSE
+
+  # Calculate estimator of LRV for tau
+  Tau_LRV <- 4 * sum(k_XY_autoc[1], 2 * (w * k_XY_autoc[-1]))
+  
+  return(Tau_LRV)
+}
+
+########################## Rho Independent Long-Run Variance Estimation #############################
+Rho_LRV <- function(X, Y, bandwidth = "Dehling"){
+  if (length(X) != length(Y)){stop("X and Y must have equal length")}
+  n <- length(X)
+  
+  # Determine bandwidth
+  if (bandwidth == "StockWatson"){b <- floor(0.75 * n^(1/3))}
+  else if (bandwidth == "Dehling"){b <- floor(2 * n^(1/3))}
+  else stop("Please insert a valid bandwith calculation method")
+  
+  # Calculate weights
+  h <- 1:(n-1)
+  w <- pmax(1 - abs(h) / (b + 1), 0)
+  
+  # Estimate values
+  mean_x <- mean(X)
+  mean_y <- mean(Y)
+  sigma_xy <- (n - 1) / n * cov(X, Y)
+  var_x <- (n - 1) / n * var(X)
+  var_y <- (n - 1) / n * var(Y)
+  x_autoc <- (n - 1) / n * acf(X, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  y_autoc <- (n - 1) / n * acf(Y, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  x2_autoc <- (n - 1) / n * acf(X^2, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  y2_autoc <- (n - 1) / n * acf(Y^2, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  xy_autoc <- (n - 1) / n * acf(X*Y, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  xy_crossc <- (n - 1) / n * ccf(X, Y, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  xx2_crossc <- (n - 1) / n * ccf(X, X^2, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  yx2_crossc <- (n - 1) / n * ccf(Y, X^2, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  xy2_crossc <- (n - 1) / n * ccf(X, Y^2, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  yy2_crossc <- (n - 1) / n * ccf(Y, Y^2, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  x2y2_crossc <- (n - 1) / n * ccf(X^2, Y^2, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  xxy_crossc <- (n - 1) / n * ccf(X, X*Y, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  yxy_crossc <- (n - 1) / n * ccf(Y, X*Y, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  x2xy_crossc <- (n - 1) / n * ccf(X^2, X*Y, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  y2xy_crossc <- (n - 1) / n * ccf(Y^2, X*Y, plot = FALSE, type = "covariance", demean = TRUE, lag.max = n - 1)$acf 
+  
+  # Estimate Long-Run Variances
+  x_LRVa <- sum(x_autoc[1], 2 * (w * x_autoc[-1]))
+  y_LRVa <- sum(y_autoc[1], 2 * (w * y_autoc[-1]))
+  x2_LRVa <- sum(x2_autoc[1], 2 * (w * x2_autoc[-1]))
+  y2_LRVa <- sum(y2_autoc[1], 2 * (w * y2_autoc[-1]))
+  xy_LRVa <- sum(xy_autoc[1], 2 * (w * xy_autoc[-1]))
+  xy_LRVc <- sum(xy_crossc[1], 2 * (w * xy_crossc[-1]))
+  xx2_LRVc <- sum(xx2_crossc[1], 2 * (w * xx2_crossc[-1]))
+  yx2_LRVc <- sum(yx2_crossc[1], 2 * (w * yx2_crossc[-1]))
+  xy2_LRVc <- sum(xy2_crossc[1], 2 * (w * xy2_crossc[-1]))
+  yy2_LRVc <- sum(yy2_crossc[1], 2 * (w * yy2_crossc[-1]))
+  x2y2_LRVc <- sum(x2y2_crossc[1], 2 * (w * x2y2_crossc[-1]))
+  xxy_LRVc <- sum(xxy_crossc[1], 2 * (w * xxy_crossc[-1]))
+  yxy_LRVc <- sum(yxy_crossc[1], 2 * (w * yxy_crossc[-1]))
+  x2xy_LRVc <- sum(x2xy_crossc[1], 2 * (w * x2xy_crossc[-1]))
+  y2xy_LRVc <- sum(y2xy_crossc[1], 2 * (w * y2xy_crossc[-1]))
+  
+  # Fill the matrix with long-Run variances
+  Sigma <- diag(c(x_LRVa, y_LRVa, x2_LRVa, y2_LRVa, xy_LRVa))
+  Sigma[upper.tri(Sigma)] <- c(xy_LRVc, xx2_LRVc, yx2_LRVc, xy2_LRVc, yy2_LRVc, x2y2_LRVc, xxy_LRVc, yxy_LRVc, x2xy_LRVc, y2xy_LRVc)
+  Sigma <- as.matrix(forceSymmetric(Sigma, uplo = "U"))
+  
+  # Create Jacobian matrices for Delta method
+  A <- matrix(c(-2*mean_x, -mean_y, 0, 0, -mean_x, -2*mean_y, 1, 0, 0, 0, 0, 1, 0, 1, 0), nrow = 3)
+  B <- c(-0.5 * sigma_xy / sqrt(var_y) * sqrt(var_x) ^ (-3), 1 / sqrt(var_y * var_x), -0.5 * sigma_xy / sqrt(var_x) * sqrt(var_y) ^ (-3))
+  
+  Rho_LRV <- B %*% A %*% Sigma %*% t(A) %*% B
+  
+  return(Rho_LRV)
+}
+
+
+########################## SRho Long-Run Variance Estimation #############################
+SRho_LRV <- function(X, Y, spearman, bandwidth = "Dehling"){
+  if (length(X) != length(Y)){stop("X and Y must have equal length")}
+  n <- length(X)
+  
+  # Determine bandwidth
+  if (bandwidth == "StockWatson"){b <- floor(0.75 * n^(1/3))}
+  else if (bandwidth == "Dehling"){b <- floor(2 * n^(1/3))}
+  else stop("Please insert a valid bandwith calculation method")
+  
+  # Calculate weights
+  h <- 1:(n-1)
+  w <- pmax(1 - abs(h) / (b + 1), 0)
+  
+  # Need to define helper functions
+  G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+  G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+  G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+  g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+  g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+  
+  # Define kernel realizations
+  G_XX <- G_X(X)
+  G_YY <- G_Y(Y)
+  k_XY <- 4 * (g_x(X) + g_y(Y) + G_XX * G_YY - G_XX - G_YY) + 1 - spearman
+  
+  # Calculate autocovariances in a vector with row = lag
+  k_XY_autoc <- (n - 1) / n * acf(k_XY, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # k_XY has mean 0. Therefore, demean = FALSE
+  
+  # Calculate estimator of LRV for srho
+  SRho_LRV <- 9 * sum(k_XY_autoc[1], 2 * (w * k_XY_autoc[-1]))
+  
+  return(SRho_LRV)
+}
+
+########################## Gamma Long-Run Variance Estimation #############################
+Gamma_LRV <- function(X, Y, kendall, tie_prob, bandwidth = "Dehling"){
+  if (length(X) != length(Y)){stop("X and Y must have equal length")}
+  n <- length(X)
+  
+  # Determine bandwidth
+  if (bandwidth == "StockWatson"){b <- floor(0.75 * n^(1/3))}
+  else if (bandwidth == "Dehling"){b <- floor(2 * n^(1/3))}
+  else stop("Please insert a valid bandwith calculation method")
+  
+  # Calculate weights
+  h <- 1:(n-1)
+  w <- pmax(1 - abs(h) / (b + 1), 0)
+  
+  # Need to define helper functions
+  G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+  G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+  G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+  x_eq_y_eq <- Vectorize(function(x_val, y_val) mean(X == x_val & Y == y_val))
+  x_eq <- Vectorize(function(x_val) mean(X == x_val))
+  y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+  
+  # Define kernel realizations
+  k_XY_tau <- 4 * G_XY(X, Y) - 2 * (G_X(X) + G_Y(Y)) + 1 - kendall
+  k_XY_tie <- x_eq(X) + y_eq(Y) - x_eq_y_eq(X, Y) - tie_prob
+  
+  # Calculate autocovariances in a vector with row = lag
+  k_XY_tau_autoc <- (n - 1) / n * acf(k_XY_tau, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # k_XY_tau has mean 0. Therefore, demean = FALSE
+  k_XY_tie_autoc <- (n - 1) / n * acf(k_XY_tie, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # k_XY_tie has mean 0. Therefore, demean = FALSE
+  k_XY_tautie_crossc <- (n - 1) / n * ccf(k_XY_tau, k_XY_tie, plot = FALSE, type = "covariance", lag.max = n - 1)$acf
+  
+  # Calculate estimator of LRV for gamma
+  sigma_tau_sq <- 4 * sum(k_XY_tau_autoc[1], 2 * (w * k_XY_tau_autoc[-1]))
+  sigma_nu_sq <- 4 * sum(k_XY_tie_autoc[1], 2 * (w * k_XY_tie_autoc[-1]))
+  sigma_taunu <- 4 * sum(c(sort(w), 1, w) * k_XY_tautie_crossc)
+  gamma <- kendall/(1-tie_prob)
+  
+  Gamma_LRV <- (sigma_tau_sq + gamma^2 * sigma_nu_sq + 2 * gamma * sigma_taunu) / (1 - tie_prob)^2
+  
+  return(Gamma_LRV)
+}
+
+########################## TauB Long-Run Variance Estimation #############################
+TauB_LRV <- function(X, Y, kendall, X_TieProb, Y_TieProb, bandwidth = "Dehling"){
+  if (length(X) != length(Y)){stop("X and Y must have equal length")}
+  n <- length(X)
+  
+  # Determine bandwidth
+  if (bandwidth == "StockWatson"){b <- floor(0.75 * n^(1/3))}
+  else if (bandwidth == "Dehling"){b <- floor(2 * n^(1/3))}
+  else stop("Please insert a valid bandwith calculation method")
+  
+  # Calculate weights
+  h <- 1:(n-1)
+  w <- pmax(1 - abs(h) / (b + 1), 0)
+  
+  # Need to define helper functions
+  G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+  G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+  G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+  x_eq <- Vectorize(function(x_val) mean(X == x_val))
+  y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+  
+  # Define kernel realizations
+  k_XY_tau <- 4 * G_XY(X, Y) - 2 * (G_X(X) + G_Y(Y)) + 1 - kendall
+  k_X_tie <- x_eq(X) - X_TieProb
+  k_Y_tie <- y_eq(Y) - Y_TieProb
+  
+  # Calculate autocovariances in a vector with row = lag
+  k_XY_tau_autoc <- (n - 1) / n * acf(k_XY_tau, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # k_XY_tau has mean 0. Therefore, demean = FALSE
+  k_X_tie_autoc <- (n - 1) / n * acf(k_X_tie, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # k_X_tie has mean 0. Therefore, demean = FALSE
+  k_Y_tie_autoc <- (n - 1) / n * acf(k_Y_tie, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # k_Y_tie has mean 0. Therefore, demean = FALSE
+  k_X_tautie_crossc <- (n - 1) / n * ccf(k_XY_tau, k_X_tie, plot = FALSE, type = "covariance", lag.max = n - 1)$acf
+  k_Y_tautie_crossc <- (n - 1) / n * ccf(k_XY_tau, k_Y_tie, plot = FALSE, type = "covariance", lag.max = n - 1)$acf
+  k_XY_tietie_crossc <- (n - 1) / n * ccf(k_X_tie, k_Y_tie, plot = FALSE, type = "covariance", lag.max = n - 1)$acf
+  
+  # Calculate estimator of LRV for taub
+  sigma_tau_sq <- 4 * sum(k_XY_tau_autoc[1], 2 * (w * k_XY_tau_autoc[-1]))
+  sigma_xiX_sq <- 4 * sum(k_X_tie_autoc[1], 2 * (w * k_X_tie_autoc[-1]))
+  sigma_xiY_sq <- 4 * sum(k_Y_tie_autoc[1], 2 * (w * k_Y_tie_autoc[-1]))
+  sigma_tauxiX <- 4 * sum(c(sort(w), 1, w) * k_X_tautie_crossc)
+  sigma_tauxiY <- 4 * sum(c(sort(w), 1, w) * k_Y_tautie_crossc)
+  sigma_xiXxiY <- 4 * sum(c(sort(w), 1, w) * k_XY_tietie_crossc)
+
+  TauB_LRV <- (sigma_tau_sq + kendall * (sigma_tauxiY / (1 - X_TieProb) + sigma_tauxiY / (1 - Y_TieProb)) + kendall^2 / 4 * (sigma_xiX_sq / (1 - X_TieProb)^2 + sigma_xiY_sq / (1 - Y_TieProb)^2 + (2 * sigma_xiXxiY) / (1 - Y_TieProb) / (1 - X_TieProb))) / ((1 - X_TieProb) * (1 - Y_TieProb))
+  return(TauB_LRV)
+}
+
+########################## Rhob Long-Run Variance Estimation #############################
+Rhob_LRV <- function(X, Y, spearman, X_TieProb3, Y_TieProb3, bandwidth = "Dehling"){
+  if (length(X) != length(Y)){stop("X and Y must have equal length")}
+  n <- length(X)
+  
+  # Determine bandwidth
+  if (bandwidth == "StockWatson"){b <- floor(0.75 * n^(1/3))}
+  else if (bandwidth == "Dehling"){b <- floor(2 * n^(1/3))}
+  else stop("Please insert a valid bandwith calculation method")
+  
+  # Calculate weights
+  h <- 1:(n-1)
+  w <- pmax(1 - abs(h) / (b + 1), 0)
+  
+  # Need to define helper functions
+  G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+  G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+  G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+  g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+  g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+  x_eq <- Vectorize(function(x_val) mean(X == x_val))
+  y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+  
+  # Define kernel realizations
+  G_XX <- G_X(X)
+  G_YY <- G_Y(Y)
+  k_XY_rho <- 4 * (g_x(X) + g_y(Y) + G_XX * G_YY - G_XX - G_YY) + 1 - spearman
+  k_X_tie3 <- x_eq(X)^2 - X_TieProb3
+  k_Y_tie3 <- y_eq(Y)^2 - Y_TieProb3
+  
+  # Calculate autocovariances in a vector with row = lag
+  k_XY_rho_autoc <- (n - 1) / n * acf(k_XY_rho, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # k_XY has mean 0. Therefore, demean = FALSE
+  k_X_tie3_autoc <- (n - 1) / n * acf(k_X_tie3, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # k_X_tie has mean 0. Therefore, demean = FALSE
+  k_Y_tie3_autoc <- (n - 1) / n * acf(k_Y_tie3, plot = FALSE, type = "covariance", demean = FALSE, lag.max = n - 1)$acf # k_Y_tie has mean 0. Therefore, demean = FALSE
+  k_X_rhotie3_crossc <- (n - 1) / n * ccf(k_XY_rho, k_X_tie3, plot = FALSE, type = "covariance", lag.max = n - 1)$acf
+  k_Y_rhotie3_crossc <- (n - 1) / n * ccf(k_XY_rho, k_Y_tie3, plot = FALSE, type = "covariance", lag.max = n - 1)$acf
+  k_XY_tie3tie3_crossc <- (n - 1) / n * ccf(k_X_tie3, k_Y_tie3, plot = FALSE, type = "covariance", lag.max = n - 1)$acf
+  
+  # Calculate estimator of LRV for srho
+  sigma_rho_sq <- 9 * sum(k_XY_rho_autoc[1], 2 * (w * k_XY_rho_autoc[-1]))
+  sigma_xiX3_sq <- 9 * sum(k_X_tie3_autoc[1], 2 * (w * k_X_tie3_autoc[-1]))
+  sigma_xiY3_sq <- 9 * sum(k_Y_tie3_autoc[1], 2 * (w * k_Y_tie3_autoc[-1]))
+  sigma_rhoxiX3 <- 9 * sum(c(sort(w), 1, w) * k_X_rhotie3_crossc)
+  sigma_rhoxiY3 <- 9 * sum(c(sort(w), 1, w) * k_Y_rhotie3_crossc)
+  sigma_xiX3xiY3 <- 9 * sum(c(sort(w), 1, w) * k_XY_tie3tie3_crossc)
+  
+  Rhob_LRV <- (sigma_rho_sq + rho * (sigma_rhoxiX3 / (1 - X_TieProb3) + sigma_rhoxiY3 / (1 - Y_TieProb3)) + spearman^2 / 4 * (sigma_xiX3_sq / (1 - X_TieProb3)^2 + sigma_xiY3_sq / (1 - Y_TieProb3)^2 + (2 * sigma_xiX3xiY3) / (1 - Y_TieProb3) / (1 - X_TieProb3))) / ((1 - X_TieProb3) * (1 - Y_TieProb3))
+  
+  return(Rhob_LRV)
+}
+

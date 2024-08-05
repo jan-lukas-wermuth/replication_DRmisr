@@ -1,0 +1,151 @@
+
+################################# Plots: Simulations #########################################
+rm(list = ls())
+
+library(ggplot2)
+library(tidyr)
+library(Cairo)
+library(abind)
+
+#### Step 1: IID processes (independence across elements within each process) -- Proposition 2
+
+alpha <- 0.9
+DGPs <- c("Norm", "t4", "Cauchy")
+SampleSizes <- c("50", "200", "800")
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))[2:180]
+
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Kendall_coverage.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Pearson_coverage.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Spearman_coverage_norm_fis.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Spearman_coverage_norm.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Spearman_coverage_t1_fis.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Spearman_coverage_t1.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Spearman_coverage_t4_fis.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Spearman_coverage_t4.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_t4_CIs.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_t1_CIs.RData")
+
+# Merge Spearman arrays 
+decision_spearman_array <- abind(decision_spearman_array_norm, decision_spearman_array_norm_fis, decision_spearman_array_t4, decision_spearman_array_t4_fis, decision_spearman_array_t1, decision_spearman_array_t1_fis, along = 0, new.names = c("Norm", "Norm_Fis", "t4", "t4_Fis", "Cauchy", "Cauchy_Fis"))
+
+decision_spearman_array <- decision_spearman_array[,,,2:180]
+decision_pearson_array <- decision_pearson_array[,,,2:180]
+decision_kendall_array <- decision_kendall_array[,,,2:180]
+
+# Prepare datasets for plotting
+for (DGP in DGPs){
+  for (Ti in SampleSizes) {
+    if (DGP == "Norm") {
+      assign(paste("data", DGP, Ti, sep = "_"), data.frame(cbind(t(rbind(2/pi*asin(rhos), colMeans(decision_kendall_array[DGP, Ti,,]), colMeans(decision_kendall_array[paste(DGP, "Fis", sep = "_"), Ti,,]), colMeans(decision_spearman_array[DGP, Ti,,]), colMeans(decision_spearman_array[paste(DGP, "Fis", sep = "_"), Ti,,]))), DGP, Ti)))
+      data.table::setnames(get(paste("data", DGP, Ti, sep = "_")), c("tau", "Kendall_Coverage", "Kendall_Coverage_Fis", "Spearman_Coverage", "Spearman_Coverage_Fis", "DGP", "Ti"))
+    }
+    if (DGP == "t4") {
+      assign(paste("data", DGP, Ti, sep = "_"), data.frame(cbind(t(rbind(taus_t4[2:180], colMeans(decision_kendall_array[DGP, Ti,,]), colMeans(decision_kendall_array[paste(DGP, "Fis", sep = "_"), Ti,,]), colMeans(decision_spearman_array[DGP, Ti,,]), colMeans(decision_spearman_array[paste(DGP, "Fis", sep = "_"), Ti,,]))), DGP, Ti)))
+      data.table::setnames(get(paste("data", DGP, Ti, sep = "_")), c("tau", "Kendall_Coverage", "Kendall_Coverage_Fis", "Spearman_Coverage", "Spearman_Coverage_Fis", "DGP", "Ti"))
+    }
+    if (DGP == "Cauchy") {
+      assign(paste("data", DGP, Ti, sep = "_"), data.frame(cbind(t(rbind(taus_t1[2:180], colMeans(decision_kendall_array[DGP, Ti,,]), colMeans(decision_kendall_array[paste(DGP, "Fis", sep = "_"), Ti,,]), colMeans(decision_spearman_array[DGP, Ti,,]), colMeans(decision_spearman_array[paste(DGP, "Fis", sep = "_"), Ti,,]))), DGP, Ti)))
+      data.table::setnames(get(paste("data", DGP, Ti, sep = "_")), c("tau", "Kendall_Coverage", "Kendall_Coverage_Fis", "Spearman_Coverage", "Spearman_Coverage_Fis", "DGP", "Ti"))
+    }
+  }
+}
+
+# Merge to one big dataset
+dataset <- rbind(data_Norm_50, data_Norm_200, data_Norm_800, data_t4_50, data_t4_200, data_t4_800, data_Cauchy_50, data_Cauchy_200, data_Cauchy_800)
+dataset$Ti <- factor(dataset$Ti, levels = c(50, 200, 800))
+dataset$DGP <- factor(dataset$DGP, levels = c("Cauchy", "t4", "Norm"))
+class(dataset$Kendall_Coverage) <- "numeric"
+class(dataset$Kendall_Coverage_Fis) <- "numeric"
+class(dataset$Spearman_Coverage) <- "numeric"
+class(dataset$Spearman_Coverage_Fis) <- "numeric"
+class(dataset$tau) <- "numeric"
+dataset <- pivot_longer(dataset, cols = c("Kendall_Coverage", "Spearman_Coverage"), names_to = "CI")
+
+
+# Specify basic determinants for the plots
+size <- 10
+linewidth <- 0.2
+
+options(ggplot2.discrete.colour= c("blue", "red")) # Specify colors for the lines in the plots
+
+n_names <- c(`50` = "n = 50",
+             `200` = "n = 200",
+             `800` = "n = 800")
+
+fin_plot <- ggplot2::ggplot(data = dataset) +
+  geom_line(mapping = aes(y = value, x = tau, color = CI)) +
+  geom_hline(yintercept=c(alpha), col="black") +
+  facet_grid(cols = vars(DGP), rows = vars(Ti), labeller = labeller(Ti=n_names)) +
+  theme_bw(base_size = size) + ylim(c(0,1)) +
+  theme(axis.ticks = element_line(color = "black"), legend.position = "bottom")
+
+ggsave(filename = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Plots/Coverage.pdf", plot = fin_plot, device = cairo_pdf, width = 15, height = 15, units = "cm")
+
+################################# Plots: Simulations #########################################
+rm(list = ls())
+
+library(ggplot2)
+library(tidyr)
+library(Cairo)
+
+#### Step 1: IID processes (independence across elements within each process) -- Proposition 2
+
+alpha <- 0.9
+DGPs <- c("Norm", "t4", "Cauchy")
+SampleSizes <- c("50", "200", "800")
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2)
+
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Kendall_coverage_TS_Dehling.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/2Series_CIs/Kendall_width_TS.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_TS_norm.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_TS_t4.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_TS_t1.RData")
+
+# Prepare datasets for plotting
+for (DGP in DGPs){
+  for (Ti in SampleSizes) {
+    if (DGP == "Norm") {
+      assign(paste("data", DGP, Ti, sep = "_"), data.frame(cbind(t(rbind(taus_TS_norm, colMeans(decision_kendall_array[DGP, Ti,,]), colMeans(width_kendall_array[DGP, Ti,,]))), DGP, Ti)))
+      data.table::setnames(get(paste("data", DGP, Ti, sep = "_")), c("tau", "Coverage", "Width", "DGP", "Ti"))
+    }
+    if (DGP == "t4") {
+      assign(paste("data", DGP, Ti, sep = "_"), data.frame(cbind(t(rbind(taus_TS_t4, colMeans(decision_kendall_array[DGP, Ti,,]), colMeans(width_kendall_array[DGP, Ti,,]))), DGP, Ti)))
+      data.table::setnames(get(paste("data", DGP, Ti, sep = "_")), c("tau", "Coverage", "Width", "DGP", "Ti"))
+    }
+    if (DGP == "Cauchy") {
+      assign(paste("data", DGP, Ti, sep = "_"), data.frame(cbind(t(rbind(taus_TS_t1, colMeans(decision_kendall_array[DGP, Ti,,]), colMeans(width_kendall_array[DGP, Ti,,]))), DGP, Ti)))
+      data.table::setnames(get(paste("data", DGP, Ti, sep = "_")), c("tau", "Coverage", "Width", "DGP", "Ti"))
+    }
+  }
+}
+
+# Merge to one big dataset
+dataset <- rbind(data_Norm_50, data_Norm_200, data_Norm_800, data_t4_50, data_t4_200, data_t4_800, data_Cauchy_50, data_Cauchy_200, data_Cauchy_800)
+dataset$Ti <- factor(dataset$Ti, levels = c(50, 200, 800))
+dataset$DGP <- factor(dataset$DGP, levels = c("Cauchy", "t4", "Norm"))
+class(dataset$Coverage) <- "numeric"
+class(dataset$Width) <- "numeric"
+class(dataset$tau) <- "numeric"
+dataset <- pivot_longer(dataset, cols = c("Coverage", "Width"), names_to = "CI")
+
+
+# Specify basic determinants for the plots
+size <- 10
+linewidth <- 0.2
+
+options(ggplot2.discrete.colour= c("blue", "red")) # Specify colors for the lines in the plots
+
+n_names <- c(`50` = "n = 50",
+             `200` = "n = 200",
+             `800` = "n = 800")
+
+fin_plot <- ggplot2::ggplot(data = dataset) +
+  geom_line(mapping = aes(y = value, x = tau, color = CI)) +
+  geom_hline(yintercept=c(alpha), col="black") +
+  facet_grid(cols = vars(DGP), rows = vars(Ti), labeller = labeller(Ti=n_names)) +
+  theme_bw(base_size = size) + ylim(c(0,1)) +
+  theme(axis.ticks = element_line(color = "black"), legend.position = "bottom")
+
+ggsave(filename = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Plots/Coverage_Kendall_TS.pdf", plot = fin_plot, device = cairo_pdf, width = 15, height = 15, units = "cm")
+
+
