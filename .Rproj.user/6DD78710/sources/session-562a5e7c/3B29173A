@@ -1,26 +1,26 @@
 {
-    "id": "5745F349",
+    "id": "3B29173A",
     "path": "~/Documents/Dr.Wermuth/Projects/RankAutocorrelations/RCode/Simulations2Series_CIs.R",
     "project_path": null,
     "type": "r_source",
     "hash": "0",
     "contents": "",
     "dirty": false,
-    "created": 1722248074635.0,
+    "created": 1725383284840.0,
     "source_on_save": false,
-    "relative_order": 3,
+    "relative_order": 2,
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "22,78",
-        "scrollLine": "8"
+        "cursorPosition": "356,0",
+        "scrollLine": "333"
     },
     "folds": "",
-    "lastKnownWriteTime": 1721375924,
+    "lastKnownWriteTime": 1723045769,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1721375924,
+    "last_content_update": 1723045769,
     "read_only": false,
     "read_only_alternatives": []
 }

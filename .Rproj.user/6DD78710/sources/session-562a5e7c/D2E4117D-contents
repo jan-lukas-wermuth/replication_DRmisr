@@ -1,0 +1,487 @@
+---
+title: "Correlations_maxmin.Rmd"
+output: html_document
+date: "2023-04-27"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(datasets)
+library(mlbench)
+library(DescTools)
+library(pcaPP)
+library(EnvStats)
+library(pracma)
+library(cubature)
+library(extraDistr)
+library(patchwork)
+library(ggplot2)
+library(dvmisc)
+library(dplyr)
+```
+
+## Upper and lower bounds for the respective correlation coefficients
+
+For the rank correlation bounds, see Mesfioui (2005). The standard correlation only uses the Hoeffding formula.
+
+```{r bounds}
+tau_min = function(n, p, q){
+  T_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  S_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  for (i in 1 : (n + 1)){
+    for (j in 1 : (n + 1)){
+      T_n[i, j] = max(pbinom(i - 1, n, p) + pbinom(j - 1, n, q) - 1, 0) + max(pbinom(i - 2, n, p) + pbinom(j - 2, n, q) - 1, 0) + max(pbinom(i - 1, n, p) + pbinom(j - 2, n, q) - 1, 0) + max(pbinom(i - 2, n, p) + pbinom(j - 1, n, q) - 1, 0)
+      S_n[i, j] = max(pbinom(i - 1, n, p) + pbinom(j - 1, n, q) - 1, 0) + max(pbinom(i - 2, n, p) + pbinom(j - 2, n, q) - 1, 0) - max(pbinom(i - 1, n, p) + pbinom(j - 2, n, q) - 1, 0) - max(pbinom(i - 2, n, p) + pbinom(j - 1, n, q) - 1, 0)
+    }
+  }
+  tau_min = sum(T_n * S_n) - 1
+  return(tau_min)
+}
+
+tau_max = function(n, p, q){
+  T_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  S_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  for (i in 1 : (n + 1)){
+    for (j in 1 : (n + 1)){
+      T_n[i, j] = min(pbinom(i - 1, n, p), pbinom(j - 1, n, q)) + min(pbinom(i - 2, n, p), pbinom(j - 2, n, q)) + min(pbinom(i - 1, n, p), pbinom(j - 2, n, q)) + min(pbinom(i - 2, n, p), pbinom(j - 1, n, q))
+      S_n[i, j] = min(pbinom(i - 1, n, p), pbinom(j - 1, n, q)) + min(pbinom(i - 2, n, p), pbinom(j - 2, n, q)) - min(pbinom(i - 1, n, p), pbinom(j - 2, n, q)) - min(pbinom(i - 2, n, p), pbinom(j - 1, n, q))
+    }
+  }
+  tau_max = sum(T_n * S_n) - 1
+  return(tau_max)
+}
+
+tau_b_min = function(n, p, q){
+  T_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  S_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  for (i in 1 : (n + 1)){
+    for (j in 1 : (n + 1)){
+      T_n[i, j] = max(pbinom(i - 1, n, p) + pbinom(j - 1, n, q) - 1, 0) + max(pbinom(i - 2, n, p) + pbinom(j - 2, n, q) - 1, 0) + max(pbinom(i - 1, n, p) + pbinom(j - 2, n, q) - 1, 0) + max(pbinom(i - 2, n, p) + pbinom(j - 1, n, q) - 1, 0)
+      S_n[i, j] = max(pbinom(i - 1, n, p) + pbinom(j - 1, n, q) - 1, 0) + max(pbinom(i - 2, n, p) + pbinom(j - 2, n, q) - 1, 0) - max(pbinom(i - 1, n, p) + pbinom(j - 2, n, q) - 1, 0) - max(pbinom(i - 2, n, p) + pbinom(j - 1, n, q) - 1, 0)
+    }
+  }
+  X_tie_prob <- 0
+  for (i in 0:n) {
+    X_tie_prob <- X_tie_prob + dbinom(i,n,p)^2
+  }
+  Y_tie_prob <- 0
+  for (i in 0:n) {
+    Y_tie_prob <- Y_tie_prob + dbinom(i,n,q)^2
+  }
+  tau_b_min=(sum(T_n*S_n)-1)/sqrt((1 - X_tie_prob)*(1 - Y_tie_prob))
+  return(tau_b_min)
+}
+
+tau_b_max = function(n, p, q){
+  T_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  S_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  for (i in 1 : (n + 1)){
+    for (j in 1 : (n + 1)){
+      T_n[i, j] = min(pbinom(i - 1, n, p), pbinom(j - 1, n, q)) + min(pbinom(i - 2, n, p), pbinom(j - 2, n, q)) + min(pbinom(i - 1, n, p), pbinom(j - 2, n, q)) + min(pbinom(i - 2, n, p), pbinom(j - 1, n, q))
+      S_n[i, j] = min(pbinom(i - 1, n, p), pbinom(j - 1, n, q)) + min(pbinom(i - 2, n, p), pbinom(j - 2, n, q)) - min(pbinom(i - 1, n, p), pbinom(j - 2, n, q)) - min(pbinom(i - 2, n, p), pbinom(j - 1, n, q))
+    }
+  }
+  X_tie_prob <- 0
+  for (i in 0:n) {
+    X_tie_prob <- X_tie_prob + dbinom(i,n,p)^2
+  }
+  Y_tie_prob <- 0
+  for (i in 0:n) {
+    Y_tie_prob <- Y_tie_prob + dbinom(i,n,q)^2
+  }
+  tau_b_max=(sum(T_n*S_n)-1)/sqrt((1 - X_tie_prob)*(1 - Y_tie_prob))
+  return(tau_b_max)
+}
+
+rho_min_crazydefinition = function(n, p, q){
+  T_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  F_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  for (i in 1 : (n + 1)){
+    for (j in 1 : (n + 1)){
+      T_n[i, j] = max(pbinom(i - 1, n, p) + pbinom(j - 1, n, q) - 1, 0) + max(pbinom(i - 2, n, p) + pbinom(j - 2, n, q) - 1, 0) + max(pbinom(i - 1, n, p) + pbinom(j - 2, n, q) - 1, 0) + max(pbinom(i - 2, n, p) + pbinom(j - 1, n, q) - 1, 0)
+      F_n[i, j] = pbinom(i - 1, n, p) * pbinom(j - 1, n, q) + pbinom(i - 2, n, p) * pbinom(j - 2, n, q) - pbinom(i - 1, n, p) * pbinom(j - 2, n, q) - pbinom(i - 2, n, p) * pbinom(j - 1, n, q)
+    }
+  }
+  rho_min = 3 * sum(T_n * F_n) - 3
+  return(rho_min)
+}
+
+rho_max_crazydefinition = function(n, p, q){
+  T_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  F_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  for (i in 1 : (n + 1)){
+    for (j in 1 : (n + 1)){
+      T_n[i, j] = min(pbinom(i - 1, n, p), pbinom(j - 1, n, q)) + min(pbinom(i - 2, n, p), pbinom(j - 2, n, q)) + min(pbinom(i - 1, n, p), pbinom(j - 2, n, q)) + min(pbinom(i - 2, n, p), pbinom(j - 1, n, q))
+      F_n[i, j] = pbinom(i - 1, n, p) * pbinom(j - 1, n, q) + pbinom(i - 2, n, p) * pbinom(j - 2, n, q) - pbinom(i - 1, n, p) * pbinom(j - 2, n, q) - pbinom(i - 2, n, p) * pbinom(j - 1, n, q)
+    }
+  }
+  rho_max = 3 * sum(T_n * F_n) - 3
+  return(rho_max)
+}
+
+rho_b_min_crazydefinition = function(n, p, q){
+  T_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  F_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  for (i in 1 : (n + 1)){
+    for (j in 1 : (n + 1)){
+      T_n[i, j] = max(pbinom(i - 1, n, p) + pbinom(j - 1, n, q) - 1, 0) + max(pbinom(i - 2, n, p) + pbinom(j - 2, n, q) - 1, 0) + max(pbinom(i - 1, n, p) + pbinom(j - 2, n, q) - 1, 0) + max(pbinom(i - 2, n, p) + pbinom(j - 1, n, q) - 1, 0)
+      F_n[i, j] = pbinom(i - 1, n, p) * pbinom(j - 1, n, q) + pbinom(i - 2, n, p) * pbinom(j - 2, n, q) - pbinom(i - 1, n, p) * pbinom(j - 2, n, q) - pbinom(i - 2, n, p) * pbinom(j - 1, n, q)
+    }
+  }
+  X_tie_prob <- 0
+  for (i in 0:n) {
+    X_tie_prob <- X_tie_prob + dbinom(i,n,p)^2
+  }
+  Y_tie_prob <- 0
+  for (i in 0:n) {
+    Y_tie_prob <- Y_tie_prob + dbinom(i,n,q)^2
+  }
+  rho_b_min = (3 * sum(T_n * F_n) - 3)/sqrt((1 - X_tie_prob^2)*(1 - Y_tie_prob^2))
+  return(rho_b_min)
+}
+
+rho_b_max_crazydefinition = function(n, p, q){
+  T_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  F_n = matrix(rep(0, (n + 1) ^ 2), ncol = (n + 1))
+  for (i in 1 : (n + 1)){
+    for (j in 1 : (n + 1)){
+      T_n[i, j] = min(pbinom(i - 1, n, p), pbinom(j - 1, n, q)) + min(pbinom(i - 2, n, p), pbinom(j - 2, n, q)) + min(pbinom(i - 1, n, p), pbinom(j - 2, n, q)) + min(pbinom(i - 2, n, p), pbinom(j - 1, n, q))
+      F_n[i, j] = pbinom(i - 1, n, p) * pbinom(j - 1, n, q) + pbinom(i - 2, n, p) * pbinom(j - 2, n, q) - pbinom(i - 1, n, p) * pbinom(j - 2, n, q) - pbinom(i - 2, n, p) * pbinom(j - 1, n, q)
+    }
+  }
+  X_tie_prob <- 0
+  for (i in 0:n) {
+    X_tie_prob <- X_tie_prob + dbinom(i,n,p)^2
+  }
+  Y_tie_prob <- 0
+  for (i in 0:n) {
+    Y_tie_prob <- Y_tie_prob + dbinom(i,n,q)^2
+  }
+  rho_b_max = (3 * sum(T_n * F_n) - 3)/sqrt((1 - X_tie_prob^2)*(1 - Y_tie_prob^2))
+  return(rho_b_max)
+}
+
+r_min = function(n, p, q){
+  cov_xy = hcubature(function(x) max(pbinom(x[1], n, p) + pbinom(x[2], n, q) - 1, 0) - pbinom(x[1], n, p) * pbinom(x[2], n, q), c(-Inf, -Inf), c(Inf, Inf), absError = .Machine$double.eps)
+  r_min = (cov_xy$integral) / (n * sqrt(p * (1 - p)) * sqrt(q * (1 - q)))
+  return(r_min)
+}
+
+r_max = function(n, p, q){
+  cov_xy = hcubature(function(x) min(pbinom(x[1], n, p), pbinom(x[2], n, q)) - pbinom(x[1], n, p) * pbinom(x[2], n, q), c(-Inf, -Inf), c(Inf, Inf), absError = .Machine$double.eps)
+  r_max = (cov_xy$integral) / (n * sqrt(p * (1 - p)) * sqrt(q * (1 - q)))
+  return(r_max)
+}
+```
+
+Bring functions in correct format.
+
+```{r format}
+r_min_1 = function(p, q){r_min(1, p, q)}
+r_min_1 = Vectorize(r_min_1)
+r_min_2 = function(p, q){r_min(2, p, q)}
+r_min_2 = Vectorize(r_min_2)
+r_min_5 = function(p, q){r_min(5, p, q)}
+r_min_5 = Vectorize(r_min_5)
+r_min_10 = function(p, q){r_min(10, p, q)}
+r_min_10 = Vectorize(r_min_10)
+
+r_max_1 = function(p, q){r_max(1, p, q)}
+r_max_1 = Vectorize(r_max_1)
+r_max_2 = function(p, q){r_max(2, p, q)}
+r_max_2 = Vectorize(r_max_2)
+r_max_5 = function(p, q){r_max(5, p, q)}
+r_max_5 = Vectorize(r_max_5)
+r_max_10 = function(p, q){r_max(10, p, q)}
+r_max_10 = Vectorize(r_max_10)
+
+tau_min_1 = function(p, q){tau_min(1, p, q)}
+tau_min_1 = Vectorize(tau_min_1)
+tau_min_2 = function(p, q){tau_min(2, p, q)}
+tau_min_2 = Vectorize(tau_min_2)
+tau_min_5 = function(p, q){tau_min(5, p, q)}
+tau_min_5 = Vectorize(tau_min_5)
+tau_min_10 = function(p, q){tau_min(10, p, q)}
+tau_min_10 = Vectorize(tau_min_10)
+
+tau_max_1 = function(p, q){tau_max(1, p, q)}
+tau_max_1 = Vectorize(tau_max_1)
+tau_max_2 = function(p, q){tau_max(2, p, q)}
+tau_max_2 = Vectorize(tau_max_2)
+tau_max_5 = function(p, q){tau_max(5, p, q)}
+tau_max_5 = Vectorize(tau_max_5)
+tau_max_10 = function(p, q){tau_max(10, p, q)}
+tau_max_10 = Vectorize(tau_max_10)
+
+tau_b_min_1 = function(p, q){tau_b_min(1, p, q)}
+tau_b_min_1 = Vectorize(tau_b_min_1)
+tau_b_min_2 = function(p, q){tau_b_min(2, p, q)}
+tau_b_min_2 = Vectorize(tau_b_min_2)
+tau_b_min_5 = function(p, q){tau_b_min(5, p, q)}
+tau_b_min_5 = Vectorize(tau_b_min_5)
+tau_b_min_10 = function(p, q){tau_b_min(10, p, q)}
+tau_b_min_10 = Vectorize(tau_b_min_10)
+
+tau_b_max_1 = function(p, q){tau_b_max(1, p, q)}
+tau_b_max_1 = Vectorize(tau_b_max_1)
+tau_b_max_2 = function(p, q){tau_b_max(2, p, q)}
+tau_b_max_2 = Vectorize(tau_b_max_2)
+tau_b_max_5 = function(p, q){tau_b_max(5, p, q)}
+tau_b_max_5 = Vectorize(tau_b_max_5)
+tau_b_max_10 = function(p, q){tau_b_max(10, p, q)}
+tau_b_max_10 = Vectorize(tau_b_max_10)
+
+rho_min_1 = function(p, q){rho_min_crazydefinition(1, p, q)}
+rho_min_1 = Vectorize(rho_min_1)
+rho_min_2 = function(p, q){rho_min_crazydefinition(2, p, q)}
+rho_min_2 = Vectorize(rho_min_2)
+rho_min_5 = function(p, q){rho_min_crazydefinition(5, p, q)}
+rho_min_5 = Vectorize(rho_min_5)
+rho_min_10 = function(p, q){rho_min_crazydefinition(10, p, q)}
+rho_min_10 = Vectorize(rho_min_10)
+
+rho_max_1 = function(p, q){rho_max_crazydefinition(1, p, q)}
+rho_max_1 = Vectorize(rho_max_1)
+rho_max_2 = function(p, q){rho_max_crazydefinition(2, p, q)}
+rho_max_2 = Vectorize(rho_max_2)
+rho_max_5 = function(p, q){rho_max_crazydefinition(5, p, q)}
+rho_max_5 = Vectorize(rho_max_5)
+rho_max_10 = function(p, q){rho_max_crazydefinition(10, p, q)}
+rho_max_10 = Vectorize(rho_max_10)
+
+rho_b_min_1 = function(p, q){rho_b_min_crazydefinition(1, p, q)}
+rho_b_min_1 = Vectorize(rho_b_min_1)
+rho_b_min_2 = function(p, q){rho_b_min_crazydefinition(2, p, q)}
+rho_b_min_2 = Vectorize(rho_b_min_2)
+rho_b_min_5 = function(p, q){rho_b_min_crazydefinition(5, p, q)}
+rho_b_min_5 = Vectorize(rho_b_min_5)
+rho_b_min_10 = function(p, q){rho_b_min_crazydefinition(10, p, q)}
+rho_b_min_10 = Vectorize(rho_b_min_10)
+
+rho_b_max_1 = function(p, q){rho_b_max_crazydefinition(1, p, q)}
+rho_b_max_1 = Vectorize(rho_b_max_1)
+rho_b_max_2 = function(p, q){rho_b_max_crazydefinition(2, p, q)}
+rho_b_max_2 = Vectorize(rho_b_max_2)
+rho_b_max_5 = function(p, q){rho_b_max_crazydefinition(5, p, q)}
+rho_b_max_5 = Vectorize(rho_b_max_5)
+rho_b_max_10 = function(p, q){rho_b_max_crazydefinition(10, p, q)}
+rho_b_max_10 = Vectorize(rho_b_max_10)
+
+```
+
+
+```{r plot function}
+plot_contour <- function(f, xlim, ylim, grid, xlab, ylab, bins){
+  x <- seq(xlim[1], xlim[2], length.out = grid)
+  y <- seq(ylim[1], ylim[2], length.out = grid)
+  data <- expand_grid(x = x, y = y)
+  z <- rep(NA, grid ^ 2)
+  for (i in 1 : grid){
+    for (j in 1 : grid){
+      z [(i - 1) * grid + j] <- f(x[i], y[j])
+    }}
+  data <- mutate(as.data.frame(data), z) 
+  
+  labels <- rep("", bins + 1)
+  
+  addlabels <- seq(from = -1, to = 1, length.out = 11)
+  
+  addlabelsat <- seq(from = 1, to = bins + 1, length.out = 11)
+  
+  labels[addlabelsat] <- addlabels
+  
+  g <- ggplot(data, aes(x = x, y = y, fill = z)) +
+    geom_tile()+
+    scale_fill_stepsn(n.breaks = bins, colors = hcl.colors(20, "Spectral"), limits = c(-1, 1), labels = labels) +
+    guides(fill = guide_colourbar(title = NULL, ticks = FALSE, barheight = 10)) +
+    xlab(xlab) +
+    ylab(ylab)
+  
+  # "Green-Brown" or "Blue-Red 3" instead of "Spectral" are colorblind-safe, but for smaller ranges of values do not distinguish as well
+  g
+}
+
+```
+
+## Including Plots
+
+```{r plot_min, echo=FALSE}
+
+gridsize <- 100
+
+plot1 <- plot_contour(r_min_1, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot2 <- plot_contour(tau_min_1, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot3 <- plot_contour(tau_b_min_1, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot4 <- plot_contour(rho_min_1, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot5 <- plot_contour(rho_b_min_1, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+layout <- (plot1 | plot2 | plot3 | plot4 | plot5) + plot_layout(guides = 'collect', ncol = 5)
+ggsave(filename = "/Users/lukaswermuth/Library/CloudStorage/Dropbox/Pohle Wermuth/Ordinal_Metric Correlation/Presentation_MasterThesis/Statistical Week/cor_min_bin1.pdf", plot = layout, width = 500, height = 100, device = "pdf", units = "mm")
+
+plot1 <- plot_contour(r_min_2, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot2 <- plot_contour(tau_min_2, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot3 <- plot_contour(tau_b_min_2, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+plot4 <- plot_contour(rho_min_2, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot5 <- plot_contour(rho_b_min_2, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+layout <- (plot1 | plot2 | plot3 | plot4 | plot5) + plot_layout(guides = 'collect', ncol = 5)
+ggsave(filename = "/Users/lukaswermuth/Library/CloudStorage/Dropbox/Pohle Wermuth/Ordinal_Metric Correlation/Presentation_MasterThesis/Statistical Week/cor_min_bin2.pdf", plot = layout, width = 500, height = 100, device = "pdf", units = "mm")
+
+plot1 <- plot_contour(r_min_5, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot2 <- plot_contour(tau_min_5, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot3 <- plot_contour(tau_b_min_5, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot4 <- plot_contour(rho_min_5, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+plot5 <- plot_contour(rho_b_min_5, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+layout <- (plot1 | plot2 | plot3 | plot4 | plot5) + plot_layout(guides = 'collect', ncol = 5)
+ggsave(filename = "/Users/lukaswermuth/Library/CloudStorage/Dropbox/Pohle Wermuth/Ordinal_Metric Correlation/Presentation_MasterThesis/Statistical Week/cor_min_bin5.pdf", plot = layout, width = 500, height = 100, device = "pdf", units = "mm")
+```
+
+
+```{r plot_max, echo=FALSE}
+
+gridsize <- 100
+
+plot1 <- plot_contour(r_max_1, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot2 <- plot_contour(tau_max_1, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot3 <- plot_contour(tau_b_max_1, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+plot4 <- plot_contour(rho_max_1, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+plot5 <- plot_contour(rho_b_max_1, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+layout <- (plot1 | plot2 | plot3 | plot4 | plot5) + plot_layout(guides = 'collect', ncol = 5)
+ggsave(filename = "/Users/lukaswermuth/Library/CloudStorage/Dropbox/Pohle Wermuth/Ordinal_Metric Correlation/Presentation_MasterThesis/Statistical Week/cor_max_bin1.pdf", plot = layout, width = 500, height = 100, device = "pdf", units = "mm")
+
+plot1 <- plot_contour(r_max_2, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot2 <- plot_contour(tau_max_2, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot3 <- plot_contour(tau_b_max_2, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+plot4 <- plot_contour(rho_max_2, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot5 <- plot_contour(rho_b_max_2, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+layout <- (plot1 | plot2 | plot3 | plot4 | plot5) + plot_layout(guides = 'collect', ncol = 5)
+ggsave(filename = "/Users/lukaswermuth/Library/CloudStorage/Dropbox/Pohle Wermuth/Ordinal_Metric Correlation/Presentation_MasterThesis/Statistical Week/cor_max_bin2.pdf", plot = layout, width = 500, height = 100, device = "pdf", units = "mm")
+
+plot1 <- plot_contour(r_max_5, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot2 <- plot_contour(tau_max_5, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot3 <- plot_contour(tau_b_max_5, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+) 
+plot4 <- plot_contour(rho_max_5, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+plot5 <- plot_contour(rho_b_max_5, c(0.01, 0.99), c(0.01, 0.99), gridsize, "p", "q", 40) + coord_fixed() + theme_minimal(base_size = 15) + theme(
+  axis.text.x = element_text(color="black"),
+  axis.text.y = element_text(color="black"),
+  axis.ticks = element_line(color = "black")
+)
+layout <- (plot1 | plot2 | plot3 | plot4 | plot5) + plot_layout(guides = 'collect', ncol = 5)
+ggsave(filename = "/Users/lukaswermuth/Library/CloudStorage/Dropbox/Pohle Wermuth/Ordinal_Metric Correlation/Presentation_MasterThesis/Statistical Week/cor_max_bin5.pdf", plot = layout, width = 500, height = 100, device = "pdf", units = "mm")
+```
+

@@ -1,0 +1,20 @@
+X <- rbinom(10, 3, c(0.5,0.3,0.2))
+Y <- rbinom(10, 3, c(0.5,0.3,0.2))
+
+kendall_info <- DescTools:::.DoCount(X, Y)
+kendall_info_X <- DescTools:::.DoCount(X, X)
+kendall_info_Y <- DescTools:::.DoCount(Y, Y)
+
+tau <- (kendall_info$C - kendall_info$D) / choose(10, 2)
+tau_X <- (kendall_info_X$C - kendall_info_X$D) / choose(10, 2)
+tau_Y <- (kendall_info_Y$C - kendall_info_Y$D) / choose(10, 2)
+
+tau/sqrt(tau_X*tau_Y)
+cor(X,Y, method = "kendall")
+
+rho <- 12 * (10 - 1) / 10^3 * cov(X, Y, method = "spearman")
+rho_X <- 12 * (10 - 1) / 10^3 * cov(X, X, method = "spearman")
+rho_Y <- 12 * (10 - 1) / 10^3 * cov(Y, Y, method = "spearman")
+
+rho/sqrt(rho_X*rho_Y)
+cor(X,Y, method = "spearman")

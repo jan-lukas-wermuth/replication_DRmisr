@@ -1,0 +1,515 @@
+library(mnorm)
+library(DescTools)
+library(data.table)
+library(tsDyn)
+library(doParallel)
+library(doRNG)
+library(foreach)
+
+########################## Compute true rhos for different DGPs ##############################
+# t4 - distribution
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 4)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 4)
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_t4 <- colMeans(spearman_array)
+save(rhos_t4, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_t4.RData")
+
+# t4 - distribution: CIs
+MC <- 1000
+n <- 1000
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 4)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 4)
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_t4 <- colMeans(spearman_array)
+save(rhos_t4, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_t4_CIs.RData")
+
+# t4 - distribution: CIs short
+MC <- 1000
+n <- 1000
+rhos <- c(-0.835, -0.4, 0, 0.4, 0.835)
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 4)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 4)
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_t4 <- colMeans(spearman_array)
+save(rhos_t4, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_t4_CIs_short.RData")
+
+# Cauchy - distribution
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 1)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 1)
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_t1 <- colMeans(spearman_array)
+save(rhos_t1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_t1.RData")
+
+# Cauchy - distribution: CIs
+MC <- 1000
+n <- 1000
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 1)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 1)
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_t1 <- colMeans(spearman_array)
+save(rhos_t1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_t1_CIs.RData")
+
+# t1 - distribution: CIs short
+MC <- 1000
+n <- 1000
+rhos <- c(-0.92, -0.31, 0, 0.31, 0.92)
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 1)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 1)
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_t1 <- colMeans(spearman_array)
+save(rhos_t1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_t1_CIs_short.RData")
+
+# Pois1 - distribution
+mu <- 1
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(0, 1, 0.01), -1), digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rpois(n, lambda = mu)
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+    }
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_Pois1 <- colMeans(spearman_array)
+save(rhos_Pois1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_Pois1.RData")
+
+# Pois1 - distribution: rhob
+MC <- 1000
+n <- 10000
+rhos <- c(0, 0.3, 0.6)
+
+rhob_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  rhob <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rpois(n, lambda = mu)
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+    }
+    cor(X, Y, method = "spearman")
+  }
+  rhob_array[, as.character(rho)] <- rhob
+}
+
+stopCluster(cl)
+
+rhobs_Pois1 <- colMeans(rhob_array)
+save(rhobs_Pois1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhobs_Pois1.RData")
+
+## IID modification: Exponential
+MC <- 1000
+n <- 10000
+rhos <- seq(-0.6, 0.6, 0.3)
+
+rho_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rnorm(n)
+    Y <- qexp(pnorm(rho * X + sqrt(1 - rho^2) * rnorm(n)))
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  rho_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_NExp <- colMeans(rho_array)
+save(rhos_NExp, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_NExp.RData")
+
+
+# Normal process
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = rnorm)
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = rnorm)
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_TS_norm <- colMeans(spearman_array)
+save(rhos_TS_norm, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_TS_norm.RData")
+
+# Normal process: CIs
+MC <- 1000
+n <- 1000
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = rnorm)
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = rnorm)
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_TS_norm <- colMeans(spearman_array)
+save(rhos_TS_norm, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_TS_norm_CIs.RData")
+
+
+# t4 - process
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 4))
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 4))
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_TS_t4 <- colMeans(spearman_array)
+save(rhos_TS_t4, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_TS_t4.RData")
+
+# t4 - process: CIs
+MC <- 1000
+n <- 1000
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 4))
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 4))
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_TS_t4 <- colMeans(spearman_array)
+save(rhos_TS_t4, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_TS_t4_CIs.RData")
+
+
+# Cauchy - process
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 1))
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 1))
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_TS_t1 <- colMeans(spearman_array)
+save(rhos_TS_t1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_TS_t1.RData")
+
+# Cauchy - process: CIs
+MC <- 1000
+n <- 1000
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 1))
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 1))
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_TS_t1 <- colMeans(spearman_array)
+save(rhos_TS_t1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_TS_t1_CIs.RData")
+
+# Pois1 - process
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(0, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+spearman_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    Xt <- rpois(1, mu)
+    eps <- rpois(n, mu*(1-0.8))
+    X <- rep(NA, n)
+    for(t in 1:n){
+      Xt <- rbinom(1, Xt, 0.8) + eps[t]
+      X[t] <- Xt
+    }
+    Ut <- rpois(1, mu)
+    nu <- rpois(n, mu*(1-0.8))
+    U <- rep(NA, n)
+    for(t in 1:n){
+      Ut <- rbinom(1, Ut, 0.8) + nu[t]
+      U[t] <- Ut
+    }
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+    }
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  spearman_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_TS_Pois1 <- colMeans(spearman_array)
+save(rhos_TS_Pois1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_TS_Pois1.RData")
+
+# Pois1 - process: rhobs
+MC <- 1000
+n <- 10000
+rhos <- c(0, 0.3, 0.6)
+
+rhobs_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  rhobs <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    Xt <- rpois(1, mu)
+    eps <- rpois(n, mu*(1-0.8))
+    X <- rep(NA, n)
+    for(t in 1:n){
+      Xt <- rbinom(1, Xt, 0.8) + eps[t]
+      X[t] <- Xt
+    }
+    Ut <- rpois(1, mu)
+    nu <- rpois(n, mu*(1-0.8))
+    U <- rep(NA, n)
+    for(t in 1:n){
+      Ut <- rbinom(1, Ut, 0.8) + nu[t]
+      U[t] <- Ut
+    }
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+    }
+    cor(X, Y, method = "spearman")
+  }
+  rhobs_array[, as.character(rho)] <- rhobs
+}
+
+stopCluster(cl)
+
+rhobs_TS_Pois1 <- colMeans(rhob_array)
+save(rhobs_TS_Pois1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhobs_TS_Pois1.RData")
+
+## TS modification: Exponential
+MC <- 1000
+n <- 10000
+rhos <- seq(0, 0.6, 0.3)
+
+rho_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  spearman <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    Xt <- rexp(1)
+    eps <- rexp(n)
+    X <- rep(NA, n)
+    for(t in 1:n){
+      Xt <- rbinom(1, 1, r) * Xt + (1 - r) * eps[t]
+      X[t] <- Xt
+    }
+    Ut <- rexp(1)
+    nu <- rexp(n)
+    U <- rep(NA, n)
+    for(t in 1:n){
+      Ut <- rbinom(1, 1, r) * Ut + (1 - r) * nu[t]
+      U[t] <- Ut
+    }
+    B_rho <- rbinom(n, 1, rho)
+    Y <- B_rho * X + (1 - B_rho) * U
+    12 * (n - 1) / n^3 * cov(X, Y, method = "spearman")
+  }
+  rho_array[, as.character(rho)] <- spearman
+}
+
+stopCluster(cl)
+
+rhos_NExp_TS <- colMeans(rho_array)
+save(rhos_NExp_TS, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhos_NExp_TS.RData")
+

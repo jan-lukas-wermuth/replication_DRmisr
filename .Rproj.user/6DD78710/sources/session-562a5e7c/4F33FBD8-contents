@@ -1,0 +1,788 @@
+library(mnorm)
+library(DescTools)
+library(data.table)
+library(tsDyn)
+library(doParallel)
+library(doRNG)
+library(foreach)
+library(pcaPP)
+
+########################## Compute true taus for different DGPs ##############################
+# t4 - distribution
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 4)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 4)
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_t4 <- colMeans(kendall_array)
+save(taus_t4, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_t4.RData")
+
+# t4 - distribution: CIs
+MC <- 1000
+n <- 1000
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 4)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 4)
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_t4 <- colMeans(kendall_array)
+save(taus_t4, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_t4_CIs.RData")
+
+# t4 - distribution: CIs short
+MC <- 1000
+n <- 1000
+rhos <- c(-0.95, -0.59, 0, 0.59, 0.95)
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 4)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 4)
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_t4 <- colMeans(kendall_array)
+save(taus_t4, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_t4_CIs_short.RData")
+
+# Cauchy - distribution
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 1)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 1)
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_t1 <- colMeans(kendall_array)
+save(taus_t1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_t1.RData")
+
+# Cauchy - distribution: CIs
+MC <- 1000
+n <- 1000
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 1)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 1)
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_t1 <- colMeans(kendall_array)
+save(taus_t1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_t1_CIs.RData")
+
+# Cauchy - distribution: CIs short
+MC <- 1000
+n <- 1000
+rhos <- c(-0.985, -0.52, 0, 0.52, 0.985)
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rt(n, df = 1)
+    Y <- rho * X + sqrt(1 - rho^2) * rt(n, df = 1)
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_t1 <- colMeans(kendall_array)
+save(taus_t1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_t1_CIs_short.RData")
+
+# Pois1 - distribution
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(0, 1, 0.01), -1), digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rpois(n, lambda = mu)
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+    }
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_Pois1 <- colMeans(kendall_array)
+save(taus_Pois1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_Pois1.RData")
+
+# Pois1 - distribution: Gamma
+mu <- 1
+MC <- 1000
+n <- 10000
+rhos <- round(head(seq(0, 1, 0.01), -1), digits = 2)
+
+gamma_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  gamma <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rpois(n, lambda = mu)
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+    }
+    gamma_info <- DescTools:::.DoCount(X, Y)
+    (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+  }
+  gamma_array[, as.character(rho)] <- gamma
+}
+
+stopCluster(cl)
+
+gammas_Pois1 <- colMeans(gamma_array)
+save(gammas_Pois1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/gammas_Pois1.RData")
+
+gammas_Pois1_CIs_short <- gammas_Pois1[c("0", "0.34", "0.69")]
+save(gammas_Pois1_CIs_short, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/gammas_Pois1_CIs_short.RData")
+
+# Pois1 - distribution: TauB
+mu <- 1
+MC <- 1000
+n <- 10000
+rhos <- c(0, 0.3, 0.6)
+
+taub_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  taub <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rpois(n, lambda = mu)
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+    }
+    cor(X, Y, method = "kendall")
+  }
+  taub_array[, as.character(rho)] <- taub
+}
+
+stopCluster(cl)
+
+taubs_Pois1 <- colMeans(taub_array)
+save(taubs_Pois1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taubs_Pois1.RData")
+
+# Zipf1 - distribution: Gamma
+mu <- 1
+MC <- 1000
+n <- 1000
+rhos <- c(0, 0.008, 0.019)
+
+gamma_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  gamma <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- VGAM::rzeta(n, shape = mu) - 1
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, VGAM::rzeta(1, shape = mu) - 1, 1 - rho)
+    }
+    gamma_info <- DescTools:::.DoCount(X, Y)
+    (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+  }
+  gamma_array[, as.character(rho)] <- gamma
+}
+
+stopCluster(cl)
+
+gammas_Zipf1 <- colMeans(gamma_array)
+save(gammas_Zipf1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/gammas_Zipf1.RData")
+
+# Skellam - distribution: Gamma
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2)
+
+gamma_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  gamma <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rpois(n, lambda = 1) - rpois(n, lambda = 1)
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      u <- rpois(1, lambda = 1) - rpois(1, lambda = 1)
+      Y[t] <- sign(rho) * sign(X[t]) * rbinom(1, abs(X[t]), abs(rho)) + sign(1 - rho) * sign(u) * rbinom(1, abs(u), abs(sqrt(1 - rho^2)))
+    }
+    gamma_info <- DescTools:::.DoCount(X, Y)
+    (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+  }
+  gamma_array[, as.character(rho)] <- gamma
+}
+
+stopCluster(cl)
+
+gammas_Skellam <- colMeans(gamma_array)
+save(gammas_Skellam, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/gammas_Skellam.RData")
+
+gammas_Skellam_CIs_short <- gammas_Skellam[c("-0.85", "-0.45", "0", "0.45", "0.85")]
+save(gammas_Skellam_CIs_short, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/gammas_Skellam_CIs_short.RData")
+
+## IID modification: Exponential
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2)
+
+tau_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  tau <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rnorm(n)
+    Y <- qexp(pnorm(rho * X + sqrt(1 - rho^2) * rnorm(n)))
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)  
+    }
+  tau_array[, as.character(rho)] <- tau
+}
+
+stopCluster(cl)
+
+taus_NExp <- colMeans(tau_array)
+save(taus_NExp, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_NExp.RData")
+
+## IID modification: Exponential short
+MC <- 1000
+n <- 1000
+rhos <- c(-0.95, -0.59, 0, 0.59, 0.95)
+
+tau_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  tau <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- rnorm(n)
+    Y <- qexp(pnorm(rho * X + sqrt(1 - rho^2) * rnorm(n)))
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)  
+  }
+  tau_array[, as.character(rho)] <- tau
+}
+
+stopCluster(cl)
+
+taus_NExp <- colMeans(tau_array)
+save(taus_NExp, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_NExp_short.RData")
+
+
+
+# Normal process
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = rnorm)
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = rnorm)
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_TS_norm <- colMeans(kendall_array)
+save(taus_TS_norm, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_TS_norm.RData")
+
+# Normal process: CIs
+MC <- 1000
+n <- 1000
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = rnorm)
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = rnorm)
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_TS_norm <- colMeans(kendall_array)
+save(taus_TS_norm, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_TS_norm_CIs.RData")
+
+
+# t4 - process
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 4))
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 4))
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_TS_t4 <- colMeans(kendall_array)
+save(taus_TS_t4, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_TS_t4.RData")
+
+# t4 - process: CIs
+MC <- 1000
+n <- 1000
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 4))
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 4))
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_TS_t4 <- colMeans(kendall_array)
+save(taus_TS_t4, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_TS_t4_CIs.RData")
+
+
+# Cauchy - process
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(-1, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 1))
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 1))
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_TS_t1 <- colMeans(kendall_array)
+save(taus_TS_t1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_TS_t1.RData")
+
+# Cauchy - process: CIs
+MC <- 1000
+n <- 1000
+rhos <- c(sort(-log10(seq(1,9.9999,0.0999))[-1]), log10(seq(1,9.9999,0.0999)))
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    X <- arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 1))
+    Y <- rho * X + sqrt(1 - rho^2) * arima.sim(model = list(ar = 0.8), n = n, rand.gen = function(n) rt(n, df = 1))
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_TS_t1 <- colMeans(kendall_array)
+save(taus_TS_t1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_TS_t1_CIs.RData")
+
+# Pois1 - process
+MC <- 1000
+n <- 1000
+rhos <- round(head(seq(0, 1, 0.01), -1)[-1], digits = 2) # get rid of the first (-1) and last (1) element of the rho-vector
+
+kendall_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    Xt <- rpois(1, mu)
+    eps <- rpois(n, mu*(1-0.8))
+    X <- rep(NA, n)
+    for(t in 1:n){
+      Xt <- rbinom(1, Xt, 0.8) + eps[t]
+      X[t] <- Xt
+    }
+    Ut <- rpois(1, mu)
+    nu <- rpois(n, mu*(1-0.8))
+    U <- rep(NA, n)
+    for(t in 1:n){
+      Ut <- rbinom(1, Ut, 0.8) + nu[t]
+      U[t] <- Ut
+    }
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+    }
+    kendall_info <- DescTools:::.DoCount(X, Y)
+    (kendall_info$C - kendall_info$D) / choose(n, 2)
+  }
+  kendall_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_TS_Pois1 <- colMeans(kendall_array)
+save(taus_TS_Pois1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_TS_Pois1.RData")
+
+# Pois1 - process: Gamma
+MC <- 1000
+n <- 1000
+rhos <- seq(0,1,0.01)
+
+gamma_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  gamma <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    Xt <- rpois(1, mu)
+    eps <- rpois(n, mu*(1-0.8))
+    X <- rep(NA, n)
+    for(t in 1:n){
+      Xt <- rbinom(1, Xt, 0.8) + eps[t]
+      X[t] <- Xt
+    }
+    Ut <- rpois(1, mu)
+    nu <- rpois(n, mu*(1-0.8))
+    U <- rep(NA, n)
+    for(t in 1:n){
+      Ut <- rbinom(1, Ut, 0.8) + nu[t]
+      U[t] <- Ut
+    }
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+    }
+    gamma_info <- DescTools:::.DoCount(X, Y)
+    (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+  }
+  gamma_array[, as.character(rho)] <- gamma
+}
+
+stopCluster(cl)
+
+gammas_TS_Pois1 <- colMeans(gamma_array)
+save(gammas_TS_Pois1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/gammas_TS_Pois1.RData")
+
+
+# Pois1 - process: TauB
+MC <- 1000
+n <- 10000
+rhos <- round(head(seq(0, 0.2, 0.01), -1)[-1], digits = 2)
+
+taub_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  taub <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    Xt <- rpois(1, mu)
+    eps <- rpois(n, mu*(1-0.8))
+    X <- rep(NA, n)
+    for(t in 1:n){
+      Xt <- rbinom(1, Xt, 0.8) + eps[t]
+      X[t] <- Xt
+    }
+    Ut <- rpois(1, mu)
+    nu <- rpois(n, mu*(1-0.8))
+    U <- rep(NA, n)
+    for(t in 1:n){
+      Ut <- rbinom(1, Ut, 0.8) + nu[t]
+      U[t] <- Ut
+    }
+    Y <- rep(NA, n)
+    for (t in 1:n) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+    }
+    cor(X, Y, method = "kendall")
+  }
+  taub_array[, as.character(rho)] <- taub
+}
+
+stopCluster(cl)
+
+taubs_TS_Pois1 <- colMeans(taub_array)
+save(taubs_TS_Pois1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taubs_TS_Pois1.RData")
+
+# Zipf - process: Gamma
+mu <- 1.5
+MC <- 1000
+n <- 2000
+rhos <- seq(0,0.1,0.001)
+
+gamma_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  gamma <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    Xt <- 1
+    eps <- VGAM::rzeta(n, shape = 1.5)
+    X <- rep(NA, n)
+    for(t in 1:n){
+      Xt <- rbinom(1, Xt, 0.8) + eps[t]
+      X[t] <- Xt
+    }
+    Ut <- 1
+    nu <- VGAM::rzeta(n, shape = 1.5)
+    U <- rep(NA, n)
+    for(t in 1:n){
+      Ut <- rbinom(1, Ut, 0.8) + nu[t]
+      U[t] <- Ut
+    }
+    X <- X[1001:2000]
+    U <- U[1001:2000]
+    Y <- rep(NA, n - 1000)
+    for (t in 1:(n-1000)) {
+      Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+    }
+    gamma_info <- DescTools:::.DoCount(X, Y)
+    (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+  }
+  gamma_array[, as.character(rho)] <- gamma
+}
+
+stopCluster(cl)
+
+gammas_TS_Zipf <- colMeans(gamma_array)
+save(gammas_TS_Zipf1, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/gammas_TS_Pois1.RData")
+
+## TS modification: Exponential
+r <- 0.8
+MC <- 1000
+n <- 10000
+rhos <- round(head(seq(0, 1, 0.01), -1)[-1], digits = 2)
+
+tau_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  kendall <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    Xt <- rexp(1)
+    eps <- rexp(n)
+    X <- rep(NA, n)
+    for(t in 1:n){
+      Xt <- rbinom(1, 1, r) * Xt + (1 - r) * eps[t]
+      X[t] <- Xt
+    }
+    Ut <- rexp(1)
+    nu <- rexp(n)
+    U <- rep(NA, n)
+    for(t in 1:n){
+      Ut <- rbinom(1, 1, r) * Ut + (1 - r) * nu[t]
+      U[t] <- Ut
+    }
+    B_rho <- rbinom(n, 1, rho)
+    Y <- B_rho * X + (1 - B_rho) * U
+    pcaPP::cor.fk(X, Y)
+  }
+  tau_array[, as.character(rho)] <- kendall
+}
+
+stopCluster(cl)
+
+taus_NExp_TS <- colMeans(tau_array)
+save(taus_NExp_TS, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taus_NExp_TS.RData")
+
+
+# Skellam - process: Gamma
+MC <- 1000
+n <- 2000
+rhos <- seq(-1,1,0.01)
+
+gamma_array <- array(data = NA, dim = c(MC, length(rhos)), dimnames = list(1:MC, rhos)) # Initialize results array
+
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+for (rho in rhos) {
+  gamma <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+    set.seed(i)
+    Xt <- 1
+    eps <- rpois(n, 0.2) - rpois(n, 0.2)
+    X <- rep(NA, n)
+    for(t in 1:n){
+      Xt <- sign(Xt) * rbinom(1, abs(Xt), 0.8) + eps[t]
+      X[t] <- Xt
+    }
+    Ut <- 1
+    nu <- rpois(n, 0.2) - rpois(n, 0.2)
+    U <- rep(NA, n)
+    for(t in 1:n){
+      Ut <- sign(Ut) * rbinom(1, abs(Ut), 0.8) + nu[t]
+      U[t] <- Ut
+    }
+    X <- X[1001:2000]
+    U <- U[1001:2000]
+    Y <- rep(NA, n - 1000)
+    for (t in 1:(n - 1000)) {
+      Y[t] <- sign(rho) * sign(X[t]) * rbinom(1, abs(X[t]), abs(rho)) + ifelse(rho >= 0, 1, -1) * sign(1 - abs(rho)) * sign(U[t]) * rbinom(1, abs(U[t]), abs(1 - abs(rho)))
+    }
+    gamma_info <- DescTools:::.DoCount(X, Y)
+    (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+  }
+  gamma_array[, as.character(rho)] <- gamma
+}
+
+stopCluster(cl)
+
+gammas_TS_Skellam <- colMeans(gamma_array)
+save(gammas_TS_Skellam, file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/gammas_TS_Skellam.RData")
+

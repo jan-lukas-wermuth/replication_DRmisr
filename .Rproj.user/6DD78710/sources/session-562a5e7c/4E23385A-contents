@@ -1,0 +1,602 @@
+rm(list = ls())
+
+library(mnorm)
+library(DescTools)
+library(data.table)
+library(tsDyn)
+library(doParallel)
+library(doRNG)
+library(foreach)
+
+source(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/RCode/LRV_estim.R") # Source Long-Run Variance estimation function
+
+################################## Rank autocorrelations: Simulations ##################################
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/gammas_Pois1_CIs_short.RData")
+# load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taubs_Pois1.RData")
+# load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhobs_Pois1.RData")
+
+# Specify general variables that are needed in all steps
+mu <- 1
+MC <- 1000
+alpha <- 0.1
+DGPs <- c("Pois1", "Pois1_Fis")
+SampleSizes <- c(50, 200, 800)
+rhos <- c(0, 0.34, 0.69)
+# taubs_Pois1 <- taubs_Pois1[c("0", "0.3", "0.6")]
+# rhobs_Pois1 <- rhobs_Pois1[c("0", "0.3", "0.6")]
+
+#### Step 1: IID processes (independence across elements within each process) -- Proposition 2
+decision_gamma_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+# decision_rhob_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+# decision_taub_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+
+# Pois1 - distribution
+# Start cluster for parallel computing
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_gamma_pois1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rpois(Ti, lambda = mu)
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+      }
+      gamma_info <- DescTools:::.DoCount(X, Y)
+      gamma <- (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+      tau <- (gamma_info$C - gamma_info$D) / choose(Ti, 2)
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      XY_TieProb <- sum((table(X, Y)/length(X))^2)
+      tie_prob <- X_TieProb + Y_TieProb - XY_TieProb      
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      x_eq_y_eq <- Vectorize(function(x_val, y_val) mean(X == x_val & Y == y_val))
+      x_eq <- Vectorize(function(x_val) mean(X == x_val))
+      y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+      # Calculate Marc's variance estimator
+      G_XYXY <- G_XY(X, Y)
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      x_eqX <- x_eq(X)
+      y_eqY <- y_eq(Y)
+      x_eq_y_eqXY <- x_eq_y_eq(X, Y)
+      var_tau <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau)^2)
+      var_nu <- 4 * mean((x_eqX + y_eqY - x_eq_y_eqXY - tie_prob)^2)
+      var_taunu <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau) * (x_eqX + y_eqY - x_eq_y_eqXY - tie_prob))
+      var_hat <- (var_tau + gamma^2 * var_nu + 2 * gamma * var_taunu) / (1 - tie_prob)^2
+      as.numeric(data.table::between(gammas_Pois1_CIs_short[k], gamma + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), gamma + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_gamma_pois1_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rpois(Ti, lambda = mu)
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+      }
+      gamma_info <- DescTools:::.DoCount(X, Y)
+      gamma <- (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+      gamma_fis <- atanh(gamma)
+      tau <- (gamma_info$C - gamma_info$D) / choose(Ti, 2)
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      XY_TieProb <- sum((table(X, Y)/length(X))^2)
+      tie_prob <- X_TieProb + Y_TieProb - XY_TieProb
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      x_eq_y_eq <- Vectorize(function(x_val, y_val) mean(X == x_val & Y == y_val))
+      x_eq <- Vectorize(function(x_val) mean(X == x_val))
+      y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+      # Calculate Marc's variance estimator
+      G_XYXY <- G_XY(X, Y)
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      x_eqX <- x_eq(X)
+      y_eqY <- y_eq(Y)
+      x_eq_y_eqXY <- x_eq_y_eq(X, Y)
+      var_tau <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau)^2)
+      var_nu <- 4 * mean((x_eqX + y_eqY - x_eq_y_eqXY - tie_prob)^2)
+      var_taunu <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau) * (x_eqX + y_eqY - x_eq_y_eqXY - tie_prob))
+      var_hat <- (var_tau + gamma^2 * var_nu + 2 * gamma * var_taunu) / (1 - tie_prob)^2
+      as.numeric(data.table::between(gammas_Pois1_CIs_short[k], tanh(gamma_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - gamma^2)), tanh(gamma_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - gamma^2))))
+    }
+    decision_gamma_array["Pois1", as.character(Ti),,as.character(rho)] <- decision_gamma_pois1
+    decision_gamma_array["Pois1_Fis", as.character(Ti),,as.character(rho)] <- decision_gamma_pois1_fis
+  }
+} 
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_taub_pois1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rpois(Ti, lambda = mu)
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+      }
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      tau <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      taub <- cor(X, Y, method = "kendall")
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      XY_TieProb <- sum((table(X, Y)/length(X))^2)
+      tie_prob <- X_TieProb + Y_TieProb - XY_TieProb      
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      x_eq <- Vectorize(function(x_val) mean(X == x_val))
+      y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+      # Calculate Marc's variance estimator
+      G_XYXY <- G_XY(X, Y)
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      x_eqX <- x_eq(X)
+      y_eqY <- y_eq(Y)
+      var_tau <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau)^2)
+      var_xix <- 4 * mean((x_eqX - X_TieProb)^2)
+      var_xiy <- 4 * mean((y_eqY - Y_TieProb)^2)
+      var_tauxix <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau) * (x_eqX - X_TieProb))
+      var_tauxiy <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau) * (y_eqY - Y_TieProb))
+      var_xixxiy <- 4 * mean((x_eqX - X_TieProb) * (y_eqY - Y_TieProb))
+      var_hat <- (var_tau + tau * (var_tauxix / (1 - X_TieProb) + var_tauxiy / (1 - Y_TieProb)) + tau^2 / 4 * (var_xix / (1 - X_TieProb)^2 + var_xiy / (1 - Y_TieProb)^2 + (2 * var_xixxiy) / (1 - Y_TieProb) / (1 - X_TieProb))) / ((1 - X_TieProb) * (1 - Y_TieProb))
+      as.numeric(data.table::between(taubs_Pois1[k], taub + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), taub + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_taub_pois1_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rpois(Ti, lambda = mu)
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+      }
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      tau <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      taub <- cor(X, Y, method = "kendall")
+      taub_fis <- atanh(taub)
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      XY_TieProb <- sum((table(X, Y)/length(X))^2)
+      tie_prob <- X_TieProb + Y_TieProb - XY_TieProb
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      x_eq <- Vectorize(function(x_val) mean(X == x_val))
+      y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+      # Calculate Marc's variance estimator
+      G_XYXY <- G_XY(X, Y)
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      x_eqX <- x_eq(X)
+      y_eqY <- y_eq(Y)
+      var_tau <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau)^2)
+      var_xix <- 4 * mean((x_eqX - X_TieProb)^2)
+      var_xiy <- 4 * mean((y_eqY - Y_TieProb)^2)
+      var_tauxix <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau) * (x_eqX - X_TieProb))
+      var_tauxiy <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau) * (y_eqY - Y_TieProb))
+      var_xixxiy <- 4 * mean((x_eqX - X_TieProb) * (y_eqY - Y_TieProb))
+      var_hat <- (var_tau + tau * (var_tauxix / (1 - X_TieProb) + var_tauxiy / (1 - Y_TieProb)) + tau^2 / 4 * (var_xix / (1 - X_TieProb)^2 + var_xiy / (1 - Y_TieProb)^2 + (2 * var_xixxiy) / (1 - Y_TieProb) / (1 - X_TieProb))) / ((1 - X_TieProb) * (1 - Y_TieProb))
+      as.numeric(data.table::between(taubs_Pois1[k], tanh(taub_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - taub^2)), tanh(taub_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - taub^2))))
+    }
+    decision_taub_array["Pois1", as.character(Ti),,as.character(rho)] <- decision_taub_pois1
+    decision_taub_array["Pois1_Fis", as.character(Ti),,as.character(rho)] <- decision_taub_pois1_fis
+  }
+} 
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_rhob_pois1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rpois(Ti, lambda = mu)
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+      }
+      rhob <- cor(X, Y, method = "spearman")
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      XY_TieProb <- sum((table(X, Y)/length(X))^2)
+      tie_prob <- X_TieProb + Y_TieProb - XY_TieProb      
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+      g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+      x_eq <- Vectorize(function(x_val) mean(X == x_val))
+      y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+      # Calculate Marc's variance estimator
+      g_xX <- g_x(X)
+      g_yY <- g_y(Y)
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      x_eqX <- x_eq(X)
+      y_eqY <- y_eq(Y)
+      var_spearman <- 9 * mean((4 * (g_xX + g_yY + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman)^2)
+      var_xix <- 4 * mean((x_eqX - X_TieProb)^2)
+      var_xiy <- 4 * mean((y_eqY - Y_TieProb)^2)
+      var_rhoxix <- 6 * mean((4 * (g_xX + g_yY + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman) * (x_eqX - X_TieProb))
+      var_rhoxiy <- 6 * mean((4 * (g_xX + g_yY + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman) * (y_eqY - Y_TieProb))
+      var_xixxiy <- 4 * mean((x_eqX - X_TieProb) * (y_eqY - Y_TieProb))
+      var_hat <- (var_spearman + 2 * spearman * ((X_TieProb * var_rhoxix) / (1 - X_TieProb^2) + (Y_TieProb * var_rhoxiy) / (1 - Y_TieProb^2)) + spearman^2 * ((X_TieProb^2 * var_xix) / (1 - X_TieProb^2)^2 + (Y_TieProb^2 * var_xiy) / (1 - Y_TieProb^2)^2 + (2 * Y_TieProb * X_TieProb * var_xixxiy) / (1 - Y_TieProb^2) / (1 - X_TieProb^2))) / ((1 - X_TieProb^2) * (1 - Y_TieProb^2))
+      as.numeric(data.table::between(rhobs_Pois1[k], rhob + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), rhob + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_rhob_pois1_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rpois(Ti, lambda = mu)
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, rpois(1, lambda = mu), 1 - rho)
+      }
+      rhob <- cor(X, Y, method = "spearman")
+      rhob_fis <- atanh(rhob)
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      XY_TieProb <- sum((table(X, Y)/length(X))^2)
+      tie_prob <- X_TieProb + Y_TieProb - XY_TieProb      
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      g_x <- Vectorize(function(x_val) mean(G_XY(x_val, Y)))
+      g_y <- Vectorize(function(y_val) mean(G_XY(X, y_val)))
+      x_eq <- Vectorize(function(x_val) mean(X == x_val))
+      y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+      # Calculate Marc's variance estimator
+      g_xX <- g_x(X)
+      g_yY <- g_y(Y)
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      x_eqX <- x_eq(X)
+      y_eqY <- y_eq(Y)
+      var_spearman <- 9 * mean((4 * (g_xX + g_yY + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman)^2)
+      var_xix <- 4 * mean((x_eqX - X_TieProb)^2)
+      var_xiy <- 4 * mean((y_eqY - Y_TieProb)^2)
+      var_rhoxix <- 6 * mean((4 * (g_xX + g_yY + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman) * (x_eqX - X_TieProb))
+      var_rhoxiy <- 6 * mean((4 * (g_xX + g_yY + G_XX * G_YY - G_XX - G_YY)  + 1 - spearman) * (y_eqY - Y_TieProb))
+      var_xixxiy <- 4 * mean((x_eqX - X_TieProb) * (y_eqY - Y_TieProb))
+      var_hat <- (var_spearman + 2 * spearman * ((X_TieProb * var_rhoxix) / (1 - X_TieProb^2) + (Y_TieProb * var_rhoxiy) / (1 - Y_TieProb^2)) + spearman^2 * ((X_TieProb^2 * var_xix) / (1 - X_TieProb^2)^2 + (Y_TieProb^2 * var_xiy) / (1 - Y_TieProb^2)^2 + (2 * Y_TieProb * X_TieProb * var_xixxiy) / (1 - Y_TieProb^2) / (1 - X_TieProb^2))) / ((1 - X_TieProb^2) * (1 - Y_TieProb^2))
+      as.numeric(data.table::between(rhobs_Pois1[k], tanh(rhob_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - rhob^2)), tanh(rhob_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - rhob^2))))
+    }
+    decision_rhob_array["Pois1", as.character(Ti),,as.character(rho)] <- decision_rhob_pois1
+    decision_rhob_array["Pois1_Fis", as.character(Ti),,as.character(rho)] <- decision_rhob_pois1_fis
+  }
+}
+
+# Skellam Distribution
+DGPs <- c("Skellam11", "Skellam11_Fis")
+rhos <- c(-0.85, -0.45, 0, 0.45, 0.85)
+
+decision_gamma_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_gamma_skellam11 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rpois(Ti, lambda = 1) - rpois(Ti, lambda = 1)
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        u <- rpois(1, lambda = 1) - rpois(1, lambda = 1)
+        Y[t] <- sign(rho) * sign(X[t]) * rbinom(1, abs(X[t]), abs(rho)) + sign(1 - rho) * sign(u) * rbinom(1, abs(u), abs(sqrt(1 - rho^2)))
+      }
+      gamma_info <- DescTools:::.DoCount(X, Y)
+      gamma <- (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+      tau <- (gamma_info$C - gamma_info$D) / choose(Ti, 2)
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      XY_TieProb <- sum((table(X, Y)/length(X))^2)
+      tie_prob <- X_TieProb + Y_TieProb - XY_TieProb      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      x_eq_y_eq <- Vectorize(function(x_val, y_val) mean(X == x_val & Y == y_val))
+      x_eq <- Vectorize(function(x_val) mean(X == x_val))
+      y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+      # Calculate Marc's variance estimator
+      G_XYXY <- G_XY(X, Y)
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      x_eqX <- x_eq(X)
+      y_eqY <- y_eq(Y)
+      x_eq_y_eqXY <- x_eq_y_eq(X, Y)
+      var_tau <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau)^2)
+      var_nu <- 4 * mean((x_eqX + y_eqY - x_eq_y_eqXY - tie_prob)^2)
+      var_taunu <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau) * (x_eqX + y_eqY - x_eq_y_eqXY - tie_prob))
+      var_hat <- (var_tau + gamma^2 * var_nu + 2 * gamma * var_taunu) / (1 - tie_prob)^2
+      as.numeric(data.table::between(gammas_Skellam_CIs_short[k], gamma + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), gamma + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_gamma_skellam11_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      X <- rpois(Ti, lambda = 1) - rpois(Ti, lambda = 1)
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        u <- rpois(1, lambda = 1) - rpois(1, lambda = 1)
+        Y[t] <- sign(rho) * sign(X[t]) * rbinom(1, abs(X[t]), abs(rho)) + sign(1 - rho) * sign(u) * rbinom(1, abs(u), abs(sqrt(1 - rho^2)))
+      }
+      gamma_info <- DescTools:::.DoCount(X, Y)
+      gamma <- (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+      gamma_fis <- atanh(gamma)
+      tau <- (gamma_info$C - gamma_info$D) / choose(Ti, 2)
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      XY_TieProb <- sum((table(X, Y)/length(X))^2)
+      tie_prob <- X_TieProb + Y_TieProb - XY_TieProb
+      # Define functions that are needed in the variance estimation: Vectorize relative frequency functions
+      G_XY <- Vectorize(function(x_val, y_val) (mean(X <= x_val & Y <= y_val) + mean(X <= x_val & Y < y_val) + mean(X < x_val & Y <= y_val) + mean(X < x_val & Y < y_val)) / 4)
+      G_X <- Vectorize(function(x_val) (mean(X < x_val) + mean(X <= x_val)) / 2)
+      G_Y <- Vectorize(function(y_val) (mean(Y < y_val) + mean(Y <= y_val)) / 2)
+      x_eq_y_eq <- Vectorize(function(x_val, y_val) mean(X == x_val & Y == y_val))
+      x_eq <- Vectorize(function(x_val) mean(X == x_val))
+      y_eq <- Vectorize(function(y_val) mean(Y == y_val))
+      # Calculate Marc's variance estimator
+      G_XYXY <- G_XY(X, Y)
+      G_XX <- G_X(X)
+      G_YY <- G_Y(Y)
+      x_eqX <- x_eq(X)
+      y_eqY <- y_eq(Y)
+      x_eq_y_eqXY <- x_eq_y_eq(X, Y)
+      var_tau <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau)^2)
+      var_nu <- 4 * mean((x_eqX + y_eqY - x_eq_y_eqXY - tie_prob)^2)
+      var_taunu <- 4 * mean((4 * G_XYXY - 2 * (G_XX + G_YY) + 1 - tau) * (x_eqX + y_eqY - x_eq_y_eqXY - tie_prob))
+      var_hat <- (var_tau + gamma^2 * var_nu + 2 * gamma * var_taunu) / (1 - tie_prob)^2
+      as.numeric(data.table::between(gammas_Skellam_CIs_short[k], tanh(gamma_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - gamma^2)), tanh(gamma_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - gamma^2))))
+    }
+    decision_gamma_array["Skellam11", as.character(Ti),,as.character(rho)] <- decision_gamma_skellam11
+    decision_gamma_array["Skellam11_Fis", as.character(Ti),,as.character(rho)] <- decision_gamma_skellam11_fis
+  }
+} 
+
+stopCluster(cl)
+
+save(decision_gamma_array, file = "/home/fuchs/agmisc/wermuth/Marc/gamma_coverage.RData")
+save(decision_rhob_array, file = "/home/fuchs/agmisc/wermuth/Marc/rhob_coverage.RData")
+save(decision_taub_array, file = "/home/fuchs/agmisc/wermuth/Marc/taub_coverage.RData")
+
+
+################################## Rank autocorrelations: Simulations ##################################
+rm(list = ls())
+
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/gammas_TS_Pois1.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/taubs_TS_Pois1.RData")
+load(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Simulations/rhobs_TS_Pois1.RData")
+
+source(file = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/RCode/LRV_estim.R") # Source Long-Run Variance estimation function
+
+# Specify general variables that are needed in all steps
+mu <- 1
+MC <- 1000
+alpha <- 0.1
+DGPs <- c("Pois1_TS", "Pois1_TS_Fis")
+SampleSizes <- c(50, 200, 800)
+rhos <- c(0, 0.3, 0.6)
+
+#### Step 2: Time Series processes
+decision_gamma_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+decision_rhob_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+decision_taub_array <- array(data = NA, dim = c(length(DGPs), length(SampleSizes), MC, length(rhos)), dimnames = list(DGPs, SampleSizes, 1:MC, rhos)) # Initialize results array
+
+# Start cluster for parallel computing
+cl <- makeCluster(detectCores() - 1, type = "PSOCK")
+registerDoParallel(cl)
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_gamma_pois1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      Xt <- rpois(1, mu)
+      eps <- rpois(Ti, mu*(1-0.8))
+      X <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Xt <- rbinom(1, Xt, 0.8) + eps[t]
+        X[t] <- Xt
+      }
+      Ut <- rpois(1, mu)
+      nu <- rpois(Ti, mu*(1-0.8))
+      U <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Ut <- rbinom(1, Ut, 0.8) + nu[t]
+        U[t] <- Ut
+      }
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+      }
+      gamma_info <- DescTools:::.DoCount(X, Y)
+      gamma <- (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+      tau <- (gamma_info$C - gamma_info$D) / choose(Ti, 2)
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      XY_TieProb <- sum((table(X, Y)/length(X))^2)
+      tie_prob <- X_TieProb + Y_TieProb - XY_TieProb      
+      var_hat <- Gamma_LRV(X, Y, tau, tie_prob, bandwidth = "Dehling")
+      as.numeric(data.table::between(gammas_TS_Pois1[k], gamma + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), gamma + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_gamma_pois1_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      Xt <- rpois(1, mu)
+      eps <- rpois(Ti, mu*(1-0.8))
+      X <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Xt <- rbinom(1, Xt, 0.8) + eps[t]
+        X[t] <- Xt
+      }
+      Ut <- rpois(1, mu)
+      nu <- rpois(Ti, mu*(1-0.8))
+      U <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Ut <- rbinom(1, Ut, 0.8) + nu[t]
+        U[t] <- Ut
+      }
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+      }
+      gamma_info <- DescTools:::.DoCount(X, Y)
+      gamma <- (gamma_info$C - gamma_info$D) / (gamma_info$C + gamma_info$D)
+      gamma_fis <- atanh(gamma)
+      tau <- (gamma_info$C - gamma_info$D) / choose(Ti, 2)
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      XY_TieProb <- sum((table(X, Y)/length(X))^2)
+      tie_prob <- X_TieProb + Y_TieProb - XY_TieProb
+      var_hat <- Gamma_LRV(X, Y, tau, tie_prob, bandwidth = "Dehling")
+      as.numeric(data.table::between(gammas_TS_Pois1[k], tanh(gamma_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - gamma^2)), tanh(gamma_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - gamma^2))))
+    }
+    decision_gamma_array["Pois1_TS", as.character(Ti),,as.character(rho)] <- decision_gamma_pois1
+    decision_gamma_array["Pois1_TS_Fis", as.character(Ti),,as.character(rho)] <- decision_gamma_pois1_fis
+  }
+} 
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_taub_pois1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      Xt <- rpois(1, mu)
+      eps <- rpois(Ti, mu*(1-0.8))
+      X <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Xt <- rbinom(1, Xt, 0.8) + eps[t]
+        X[t] <- Xt
+      }
+      Ut <- rpois(1, mu)
+      nu <- rpois(Ti, mu*(1-0.8))
+      U <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Ut <- rbinom(1, Ut, 0.8) + nu[t]
+        U[t] <- Ut
+      }
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+      }
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      tau <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      taub <- cor(X, Y, method = "kendall")
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      var_hat <- TauB_LRV(X, Y, tau, X_TieProb, Y_TieProb, bandwidth = "Dehling")
+      as.numeric(data.table::between(taubs_TS_Pois1[k], taub + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), taub + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_taub_pois1_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      Xt <- rpois(1, mu)
+      eps <- rpois(Ti, mu*(1-0.8))
+      X <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Xt <- rbinom(1, Xt, 0.8) + eps[t]
+        X[t] <- Xt
+      }
+      Ut <- rpois(1, mu)
+      nu <- rpois(Ti, mu*(1-0.8))
+      U <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Ut <- rbinom(1, Ut, 0.8) + nu[t]
+        U[t] <- Ut
+      }
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+      }
+      kendall_info <- DescTools:::.DoCount(X, Y)
+      tau <- (kendall_info$C - kendall_info$D) / choose(Ti, 2)
+      taub <- cor(X, Y, method = "kendall")
+      taub_fis <- atanh(taub)
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      var_hat <- TauB_LRV(X, Y, tau, X_TieProb, Y_TieProb, bandwidth = "Dehling")
+      as.numeric(data.table::between(taubs_TS_Pois1[k], tanh(taub_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - taub^2)), tanh(taub_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - taub^2))))
+    }
+    decision_taub_array["Pois1_TS", as.character(Ti),,as.character(rho)] <- decision_taub_pois1
+    decision_taub_array["Pois1_TS_Fis", as.character(Ti),,as.character(rho)] <- decision_taub_pois1_fis
+  }
+} 
+
+k <- 0
+for (rho in rhos){
+  k <- k + 1
+  for (Ti in SampleSizes){
+    decision_rhob_pois1 <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      Xt <- rpois(1, mu)
+      eps <- rpois(Ti, mu*(1-0.8))
+      X <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Xt <- rbinom(1, Xt, 0.8) + eps[t]
+        X[t] <- Xt
+      }
+      Ut <- rpois(1, mu)
+      nu <- rpois(Ti, mu*(1-0.8))
+      U <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Ut <- rbinom(1, Ut, 0.8) + nu[t]
+        U[t] <- Ut
+      }
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+      }
+      rhob <- cor(X, Y, method = "spearman")
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      var_hat <- Rhob_LRV(X, Y, spearman, X_TieProb, Y_TieProb, bandwidth = "Dehling")
+      as.numeric(data.table::between(rhobs_TS_Pois1[k], rhob + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti), rhob + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)))
+    }
+    decision_rhob_pois1_fis <- foreach(i = 1:MC, .combine = 'rbind') %dopar% {
+      set.seed(i) # Is it sensible to use the same seed for all sizes? I think yes
+      Xt <- rpois(1, mu)
+      eps <- rpois(Ti, mu*(1-0.8))
+      X <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Xt <- rbinom(1, Xt, 0.8) + eps[t]
+        X[t] <- Xt
+      }
+      Ut <- rpois(1, mu)
+      nu <- rpois(Ti, mu*(1-0.8))
+      U <- rep(NA, Ti)
+      for(t in 1:Ti){
+        Ut <- rbinom(1, Ut, 0.8) + nu[t]
+        U[t] <- Ut
+      }
+      Y <- rep(NA, Ti)
+      for (t in 1:Ti) {
+        Y[t] <- rbinom(1, X[t], rho) + rbinom(1, U[t], 1 - rho)
+      }
+      rhob <- cor(X, Y, method = "spearman")
+      rhob_fis <- atanh(rhob)
+      spearman <- 12 * (Ti - 1) / Ti^3 * cov(X, Y, method = "spearman")
+      X_TieProb <- sum((table(X)/length(X))^2)
+      Y_TieProb <- sum((table(Y)/length(Y))^2)
+      var_hat <- Rhob_LRV(X, Y, spearman, X_TieProb, Y_TieProb, bandwidth = "Dehling")
+      as.numeric(data.table::between(rhobs_TS_Pois1[k], tanh(rhob_fis + qnorm(alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - rhob^2)), tanh(rhob_fis + qnorm(1 - alpha/2)*sqrt(var_hat)/sqrt(Ti)/(1 - rhob^2))))
+    }
+    decision_rhob_array["Pois1_TS", as.character(Ti),,as.character(rho)] <- decision_rhob_pois1
+    decision_rhob_array["Pois1_TS_Fis", as.character(Ti),,as.character(rho)] <- decision_rhob_pois1_fis
+  }
+}
+
+stopCluster(cl)
+
+save(decision_gamma_array, file = "/home/fuchs/agmisc/wermuth/Marc/gamma_TS_coverage.RData")
+save(decision_rhob_array, file = "/home/fuchs/agmisc/wermuth/Marc/rhob_TS_coverage.RData")
+save(decision_taub_array, file = "/home/fuchs/agmisc/wermuth/Marc/taub_TS_coverage.RData")

@@ -1,24 +1,26 @@
 {
-    "id": "59C6B0A6",
+    "id": "FD10B4E7",
     "path": "~/Documents/Dr.Wermuth/Projects/RankAutocorrelations/RCode/LRV_estim.R",
     "project_path": null,
     "type": "r_source",
     "hash": "0",
     "contents": "",
     "dirty": false,
-    "created": 1722419101813.0,
+    "created": 1725378544082.0,
     "source_on_save": false,
-    "relative_order": 5,
+    "relative_order": 1,
     "properties": {
         "source_window_id": "",
-        "Source": "Source"
+        "Source": "Source",
+        "cursorPosition": "347,229",
+        "scrollLine": "326"
     },
     "folds": "",
-    "lastKnownWriteTime": 1720788970,
+    "lastKnownWriteTime": 1725437707,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1720788970,
+    "last_content_update": 1725437707125,
     "read_only": false,
     "read_only_alternatives": []
 }

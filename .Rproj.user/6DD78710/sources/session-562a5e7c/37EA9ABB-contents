@@ -51,9 +51,9 @@ for (DGP in DGPs){
 }
 
 # Merge to one big dataset
-dataset <- rbind(data_Norm_50, data_Norm_200, data_Norm_800, data_t4_50, data_t4_200, data_t4_800, data_Cauchy_50, data_Cauchy_200, data_Cauchy_800)
+dataset <- rbind(data_Norm_50, data_Norm_200, data_Norm_800, data_Cauchy_50, data_Cauchy_200, data_Cauchy_800)
 dataset$Ti <- factor(dataset$Ti, levels = c(50, 200, 800))
-dataset$DGP <- factor(dataset$DGP, levels = c("Cauchy", "t4", "Norm"))
+dataset$DGP <- factor(dataset$DGP, levels = c("Cauchy", "Norm"))
 class(dataset$Kendall_Coverage) <- "numeric"
 class(dataset$Kendall_Coverage_Fis) <- "numeric"
 class(dataset$Spearman_Coverage) <- "numeric"
@@ -76,10 +76,10 @@ fin_plot <- ggplot2::ggplot(data = dataset) +
   geom_line(mapping = aes(y = value, x = tau, color = CI)) +
   geom_hline(yintercept=c(alpha), col="black") +
   facet_grid(cols = vars(DGP), rows = vars(Ti), labeller = labeller(Ti=n_names)) +
-  theme_bw(base_size = size) + ylim(c(0,1)) +
+  theme_bw(base_size = size) + ylim(c(0,1)) + xlim(c(-0.9, 0.9)) +
   theme(axis.ticks = element_line(color = "black"), legend.position = "bottom")
 
-ggsave(filename = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Plots/Coverage.pdf", plot = fin_plot, device = cairo_pdf, width = 15, height = 15, units = "cm")
+ggsave(filename = "/Users/lukaswermuth/Documents/Dr.Wermuth/Projects/RankAutocorrelations/Results/Plots/Coverage.pdf", plot = fin_plot, device = cairo_pdf, width = 10, height = 14, units = "cm")
 
 ################################# Plots: Simulations #########################################
 rm(list = ls())
