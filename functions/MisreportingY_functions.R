@@ -67,17 +67,17 @@
   # Start cluster for parallel computing
   cl <- makeCluster(detectCores() - 1, type = "PSOCK")
   registerDoParallel(cl)
-  res <- foreach(i = 1:B, .combine = 'c', .export = paste("yrbs_data_combined_20172019_norecreational", drug, sep = "_"), .packages = 'mnormt') %dopar% {
+  res <- foreach(i = 1:B, .combine = 'c', .export = paste("yrbs_data_combined_201520172019_norecreational", drug, sep = "_"), .packages = 'mnormt') %dopar% {
     set.seed(i)
     mult_weights_covariates <- sample(x = 1:n, size = n, replace = TRUE)
     X_mat <- X_mat[mult_weights_covariates,]
     Z_mat <- Z_mat[mult_weights_covariates,]
     x_length <- ncol(X_mat)
     z_length <- ncol(Z_mat)
-    formula <- list(paste(paste(drug, y, sep = ""), "~", "year + median_income + sex + unemployment_rate + mar_prices_medium"),
-                        paste(paste(drug, y, sep = ""), "~", "year + median_income + sex + unemployment_rate + questions"))
+    formula <- list(paste(paste(drug, y, sep = ""), "~", "minority + sex + age_18 + median_income + unemployment_rate + mar_prices_medium"),
+                        paste(paste(drug, y, sep = ""), "~", "minority + sex + age_18 + median_income + unemployment_rate + questions"))
     gjrm_res <- GJRM::gjrm(formula = list(as.formula(formula[[1]]), as.formula(formula[[2]])),
-                           data = get(paste("yrbs_data_combined_20172019_norecreational", drug, sep = "_")), model = "BPO", margins = c("probit", "probit"), weights = rmultinom(1, size = nrow(get(paste("yrbs_data_combined_20172019_norecreational", drug, sep = "_"))), prob = rep(1/nrow(get(paste("yrbs_data_combined_20172019_norecreational", drug, sep = "_"))), nrow(get(paste("yrbs_data_combined_20172019_norecreational", drug, sep = "_"))))))
+                           data = get(paste("yrbs_data_combined_201520172019_norecreational", drug, sep = "_")), model = "BPO", margins = c("probit", "probit"), weights = rmultinom(1, size = nrow(get(paste("yrbs_data_combined_201520172019_norecreational", drug, sep = "_"))), prob = rep(1/nrow(get(paste("yrbs_data_combined_201520172019_norecreational", drug, sep = "_"))), nrow(get(paste("yrbs_data_combined_201520172019_norecreational", drug, sep = "_"))))))
     theta <- gjrm_res$theta
     coefficients <- gjrm_res$coefficients
     mean(mnormt::pmnorm(cbind(X_mat %*% coefficients[1:x_length],
@@ -100,17 +100,17 @@
   # Start cluster for parallel computing
   cl <- makeCluster(detectCores() - 1, type = "PSOCK") 
   registerDoParallel(cl)
-  res <- foreach(i = 1:B, .combine = 'c', .export = paste("yrbs_data_combined_20172019_recreational", drug, sep = "_"), .packages = 'mnormt') %dopar% {
+  res <- foreach(i = 1:B, .combine = 'c', .export = paste("yrbs_data_combined_201520172019_recreational", drug, sep = "_"), .packages = 'mnormt') %dopar% {
     set.seed(i)
     mult_weights_covariates <- sample(x = 1:n, size = n, replace = TRUE)
     X_mat <- X_mat[mult_weights_covariates,]
     Z_mat <- Z_mat[mult_weights_covariates,]
     x_length <- ncol(X_mat)
     z_length <- ncol(Z_mat)
-    formula <- list(paste(paste(drug, y, sep = ""), "~", "year + median_income + sex + unemployment_rate + mar_prices_medium"),
-                             paste(paste(drug, y, sep = ""), "~", "year + median_income + sex + unemployment_rate + questions"))
+    formula <- list(paste(paste(drug, y, sep = ""), "~", "minority + sex + age_18 + median_income + unemployment_rate + mar_prices_medium"),
+                             paste(paste(drug, y, sep = ""), "~", "minority + sex + age_18 + median_income + unemployment_rate + questions"))
     gjrm_res <- GJRM::gjrm(formula = list(as.formula(formula[[1]]), as.formula(formula[[2]])),
-                           data = get(paste("yrbs_data_combined_20172019_recreational", drug, sep = "_")), model = "BPO", margins = c("probit", "probit"), weights = rmultinom(1, size = nrow(get(paste("yrbs_data_combined_20172019_recreational", drug, sep = "_"))), prob = rep(1/nrow(get(paste("yrbs_data_combined_20172019_recreational", drug, sep = "_"))), nrow(get(paste("yrbs_data_combined_20172019_recreational", drug, sep = "_"))))))
+                           data = get(paste("yrbs_data_combined_201520172019_recreational", drug, sep = "_")), model = "BPO", margins = c("probit", "probit"), weights = rmultinom(1, size = nrow(get(paste("yrbs_data_combined_201520172019_recreational", drug, sep = "_"))), prob = rep(1/nrow(get(paste("yrbs_data_combined_201520172019_recreational", drug, sep = "_"))), nrow(get(paste("yrbs_data_combined_201520172019_recreational", drug, sep = "_"))))))
     theta <- gjrm_res$theta
     coefficients <- gjrm_res$coefficients
     mean(mnormt::pmnorm(cbind(X_mat %*% coefficients[1:x_length],
@@ -132,17 +132,17 @@
   # Start cluster for parallel computing
   cl <- makeCluster(detectCores() - 1, type = "PSOCK") 
   registerDoParallel(cl)
-  res <- foreach(i = 1:B, .combine = 'c', .export = paste("yrbs_data_combined_20172019_norecreational", drug, sep = "_"), .packages = 'mnormt') %dopar% {
+  res <- foreach(i = 1:B, .combine = 'c', .export = paste("yrbs_data_combined_201520172019_norecreational", drug, sep = "_"), .packages = 'mnormt') %dopar% {
     set.seed(i)
     mult_weights_covariates <- sample(x = 1:n, size = n, replace = TRUE)
     X_mat <- X_mat[mult_weights_covariates,]
     Z_mat <- Z_mat[mult_weights_covariates,]
     x_length <- ncol(X_mat)
     z_length <- ncol(Z_mat)
-    formula <- list(paste(paste(drug, y, sep = ""), "~", "year + median_income + sex + unemployment_rate + mar_prices_medium"),
-                             paste(paste(drug, y, sep = ""), "~", "year + median_income + sex + unemployment_rate + questions"))
+    formula <- list(paste(paste(drug, y, sep = ""), "~", "minority + sex + age_18 + median_income + unemployment_rate + mar_prices_medium"),
+                             paste(paste(drug, y, sep = ""), "~", "minority + sex + age_18 + median_income + unemployment_rate + questions"))
     gjrm_res <- GJRM::gjrm(formula = list(as.formula(formula[[1]]), as.formula(formula[[2]])),
-                           data = get(paste("yrbs_data_combined_20172019_norecreational", drug, sep = "_")), model = "BPO", margins = c("probit", "probit"), weights = rmultinom(1, size = nrow(get(paste("yrbs_data_combined_20172019_norecreational", drug, sep = "_"))), prob = rep(1/nrow(get(paste("yrbs_data_combined_20172019_norecreational", drug, sep = "_"))), nrow(get(paste("yrbs_data_combined_20172019_norecreational", drug, sep = "_"))))))
+                           data = get(paste("yrbs_data_combined_201520172019_norecreational", drug, sep = "_")), model = "BPO", margins = c("probit", "probit"), weights = rmultinom(1, size = nrow(get(paste("yrbs_data_combined_201520172019_norecreational", drug, sep = "_"))), prob = rep(1/nrow(get(paste("yrbs_data_combined_201520172019_norecreational", drug, sep = "_"))), nrow(get(paste("yrbs_data_combined_201520172019_norecreational", drug, sep = "_"))))))
     theta <- gjrm_res$theta
     coefficients <- gjrm_res$coefficients
     mean(mnormt::pmnorm(cbind(X_mat %*% coefficients[1:x_length],
@@ -165,17 +165,17 @@
   # Start cluster for parallel computing
   cl <- makeCluster(detectCores() - 1, type = "PSOCK") 
   registerDoParallel(cl)
-  res <- foreach(i = 1:B, .combine = 'c', .export = paste("yrbs_data_combined_20172019_recreational", drug, sep = "_"), .packages = 'mnormt') %dopar% {
+  res <- foreach(i = 1:B, .combine = 'c', .export = paste("yrbs_data_combined_201520172019_recreational", drug, sep = "_"), .packages = 'mnormt') %dopar% {
     set.seed(i)
     mult_weights_covariates <- sample(x = 1:n, size = n, replace = TRUE)
     X_mat <- X_mat[mult_weights_covariates,]
     Z_mat <- Z_mat[mult_weights_covariates,]
     x_length <- ncol(X_mat)
     z_length <- ncol(Z_mat)
-    formula <- list(paste(paste(drug, y, sep = ""), "~", "year + median_income + sex + unemployment_rate + mar_prices_medium"),
-                             paste(paste(drug, y, sep = ""), "~", "year + median_income + sex + unemployment_rate + questions"))
+    formula <- list(paste(paste(drug, y, sep = ""), "~", "minority + sex + age_18 + median_income + unemployment_rate + mar_prices_medium"),
+                             paste(paste(drug, y, sep = ""), "~", "minority + sex + age_18 + median_income + unemployment_rate + questions"))
     gjrm_res <- GJRM::gjrm(formula = list(as.formula(formula[[1]]), as.formula(formula[[2]])),
-                           data = get(paste("yrbs_data_combined_20172019_recreational", drug, sep = "_")), model = "BPO", margins = c("probit", "probit"), weights = rmultinom(1, size = nrow(get(paste("yrbs_data_combined_20172019_recreational", drug, sep = "_"))), prob = rep(1/nrow(get(paste("yrbs_data_combined_20172019_recreational", drug, sep = "_"))), nrow(get(paste("yrbs_data_combined_20172019_recreational", drug, sep = "_"))))))
+                           data = get(paste("yrbs_data_combined_201520172019_recreational", drug, sep = "_")), model = "BPO", margins = c("probit", "probit"), weights = rmultinom(1, size = nrow(get(paste("yrbs_data_combined_201520172019_recreational", drug, sep = "_"))), prob = rep(1/nrow(get(paste("yrbs_data_combined_201520172019_recreational", drug, sep = "_"))), nrow(get(paste("yrbs_data_combined_201520172019_recreational", drug, sep = "_"))))))
     theta <- gjrm_res$theta
     coefficients <- gjrm_res$coefficients
     mean(mnormt::pmnorm(cbind(X_mat %*% coefficients[1:x_length],
@@ -188,22 +188,22 @@
 
 
 ################ Step 2: Compute robust standard errors ####################
-# Insert j %in% 1:5
+# Insert y %in% 1:5
 # "F_(0|0)"
 "s_k_00" <- function(y, drug){
-  (quantile(get(paste("F_(0|0)_draws", drug, sep = "_"))[,j], probs = 0.75) - quantile(get(paste("F_(0|0)_draws", drug, sep = "_"))[,j], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
+  (quantile(get(paste("F_(0|0)_draws", drug, sep = "_"))[,y], probs = 0.75) - quantile(get(paste("F_(0|0)_draws", drug, sep = "_"))[,y], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
 }
 # "F_(1|0)"
 "s_k_10" <- function(y, drug){
-  (quantile(get(paste("F_(1|0)_draws", drug, sep = "_"))[,j], probs = 0.75) - quantile(get(paste("F_(1|0)_draws", drug, sep = "_"))[,j], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
+  (quantile(get(paste("F_(1|0)_draws", drug, sep = "_"))[,y], probs = 0.75) - quantile(get(paste("F_(1|0)_draws", drug, sep = "_"))[,y], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
 }
 # "F_(0|1)"
 "s_k_01" <- function(y, drug){
-  (quantile(get(paste("F_(0|1)_draws", drug, sep = "_"))[,j], probs = 0.75) - quantile(get(paste("F_(0|1)_draws", drug, sep = "_"))[,j], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
+  (quantile(get(paste("F_(0|1)_draws", drug, sep = "_"))[,y], probs = 0.75) - quantile(get(paste("F_(0|1)_draws", drug, sep = "_"))[,y], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
 }
 # "F_(1|1)"
 "s_k_11" <- function(y, drug){
-  (quantile(get(paste("F_(1|1)_draws", drug, sep = "_"))[,j], probs = 0.75) - quantile(get(paste("F_(1|1)_draws", drug, sep = "_"))[,j], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
+  (quantile(get(paste("F_(1|1)_draws", drug, sep = "_"))[,y], probs = 0.75) - quantile(get(paste("F_(1|1)_draws", drug, sep = "_"))[,y], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
 }
 
 ################ Step 3: Compute critical value ####################

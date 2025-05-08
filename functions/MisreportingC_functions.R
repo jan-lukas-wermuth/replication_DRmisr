@@ -144,22 +144,22 @@
 
 
 ################ Step 2: Compute robust standard errors ####################
-# Insert j %in% 1:5
+# Insert y %in% 1:5
 # "F_(0|0)"
 "s_k_00" <- function(y, drug){
-  (quantile(get(paste("F_(0|0)_draws", drug, sep = "_"))[,j], probs = 0.75) - quantile(get(paste("F_(0|0)_draws", drug, sep = "_"))[,j], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
+  (quantile(get(paste("F_(0|0)_draws", drug, sep = "_"))[,y], probs = 0.75) - quantile(get(paste("F_(0|0)_draws", drug, sep = "_"))[,y], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
 }
 # "F_(1|0)"
 "s_k_10" <- function(y, drug){
-  (quantile(get(paste("F_(1|0)_draws", drug, sep = "_"))[,j], probs = 0.75) - quantile(get(paste("F_(1|0)_draws", drug, sep = "_"))[,j], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
+  (quantile(get(paste("F_(1|0)_draws", drug, sep = "_"))[,y], probs = 0.75) - quantile(get(paste("F_(1|0)_draws", drug, sep = "_"))[,y], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
 }
 # "F_(0|1)"
 "s_k_01" <- function(y, drug){
-  (quantile(get(paste("F_(0|1)_draws", drug, sep = "_"))[,j], probs = 0.75) - quantile(get(paste("F_(0|1)_draws", drug, sep = "_"))[,j], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
+  (quantile(get(paste("F_(0|1)_draws", drug, sep = "_"))[,y], probs = 0.75) - quantile(get(paste("F_(0|1)_draws", drug, sep = "_"))[,y], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
 }
 # "F_(1|1)"
 "s_k_11" <- function(y, drug){
-  (quantile(get(paste("F_(1|1)_draws", drug, sep = "_"))[,j], probs = 0.75) - quantile(get(paste("F_(1|1)_draws", drug, sep = "_"))[,j], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
+  (quantile(get(paste("F_(1|1)_draws", drug, sep = "_"))[,y], probs = 0.75) - quantile(get(paste("F_(1|1)_draws", drug, sep = "_"))[,y], probs = 0.25)) / (qnorm(0.75) - qnorm(0.25))
 }
 
 ################ Step 3: Compute critical value ####################

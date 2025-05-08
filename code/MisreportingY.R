@@ -221,8 +221,6 @@ ggsave(filename = paste0("results/plots/Y_misr/CounterfactualEffect_(0_1)-(0_0)_
 
 # We add 4 graphics for F_(0|0), F_(1|0), F_(0|1) and F_(1|1)
 ################ Plots ####################
-library(ggplot2)
-library(Cairo)
 # (0|0)
 x_values <- 0:4
 y_values_lower <- c(`B_(0|0)`(1, p, drug)[1], `B_(0|0)`(2, p, drug)[1], `B_(0|0)`(3, p, drug)[1], `B_(0|0)`(4, p, drug)[1], `B_(0|0)`(5, p, drug)[1])

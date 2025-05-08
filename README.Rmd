@@ -19,12 +19,12 @@ knitr::opts_chunk$set(
 <!-- badges: end -->
 
 The code in this repository generates the results of the empirical application of the working paper
-Gutknecht, D., Liu, C. and Wermuth, J.-L. (2024), 'Distribution Regression for Partially Observed Discrete, Ordered Outcomes - The Case of Adolescent Substance Abuse' available on [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4904286).
+Gutknecht, D., Liu, C. and Wermuth, J.-L. (2025), 'Distribution Regression for Partially Observed Discrete, Ordered Outcomes - The Case of Adolescent Substance Abuse' available on [SSRN](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4904286).
 
 
 ## Data Availability
 
-We unfortunately do not have the licence to make the data publicly available. Therefore, replication is only possible by downloading the 20219 data from [YRBS](https://www.cdc.gov/yrbs/data/national-yrbs-datasets-documentation.html). The YRBS data consists of repeated cross-sectional samples and contains information about the consumption behavior of illicit substances among high-school students across U.S. states. On the other hand, data on additional state-level control variables, which is also used in the empirical analysis, can be found in the folder 'data'.
+We unfortunately do not have the licence to make the data publicly available. Therefore, replication is only possible by downloading the 2019 data from [YRBS](https://www.cdc.gov/yrbs/data/national-yrbs-datasets-documentation.html). The YRBS data consists of repeated cross-sectional samples and contains information about the consumption behavior of illicit substances among high-school students across U.S. states. On the other hand, data on additional state-level control variables, which is also used in the empirical analysis, can be found in the folder 'data'.
 
 ## Application
 
