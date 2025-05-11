@@ -74,67 +74,31 @@ yrbs_data <- yrbs_data %>%
 yrbs_data_combined <- yrbs_data %>% 
   left_join(income_unemployment_marijuana, by = c("state_abb", "year"))
 
-# Create state-level dummy variable for medical legalization
-yrbs_data_combined[,"medical"] <- ifelse((yrbs_data_combined$state.x == "Arizona")|
-                                                (yrbs_data_combined$state.x == "Alabama")|
-                                                (yrbs_data_combined$state.x == "Alaska")|
-                                                (yrbs_data_combined$state.x == "Arkansas")|
-                                                (yrbs_data_combined$state.x == "California")|
-                                                (yrbs_data_combined$state.x == "Colorado")|
-                                                (yrbs_data_combined$state.x == "Conneticut")|
-                                                (yrbs_data_combined$state.x == "Delaware")|
-                                                (yrbs_data_combined$state.x == "Florida")|
-                                                (yrbs_data_combined$state.x == "Hawaii")|
-                                                (yrbs_data_combined$state.x == "Illinois")|
-                                                (yrbs_data_combined$state.x == "Louisiana")|
-                                                (yrbs_data_combined$state.x == "Maine")|
-                                                (yrbs_data_combined$state.x == "Maryland")|
-                                                (yrbs_data_combined$state.x == "Massachusetts")|
-                                                (yrbs_data_combined$state.x == "Michigan")|
-                                                (yrbs_data_combined$state.x == "Minnesota")|
-                                                (yrbs_data_combined$state.x == "Missouri")|
-                                                (yrbs_data_combined$state.x == "Montana")|
-                                                (yrbs_data_combined$state.x == "Nevada")|
-                                                (yrbs_data_combined$state.x == "New Hampshire")|
-                                                (yrbs_data_combined$state.x == "New Jersey")|
-                                                (yrbs_data_combined$state.x == "New Mexico")|
-                                                (yrbs_data_combined$state.x == "New York")|
-                                                (yrbs_data_combined$state.x == "North Dakota")|
-                                                (yrbs_data_combined$state.x == "Ohio")|
-                                                (yrbs_data_combined$state.x == "Oklahoma")|
-                                                (yrbs_data_combined$state.x == "Oregon")|
-                                                (yrbs_data_combined$state.x == "Pennsylvania")|
-                                                (yrbs_data_combined$state.x == "Rhode Island")|
-                                                (yrbs_data_combined$state.x == "Utah")|
-                                                (yrbs_data_combined$state.x == "Vermont")|
-                                                (yrbs_data_combined$state.x == "Washington")|
-                                                (yrbs_data_combined$state.x == "West Virginia"), 1, 0)
-
 # Create state-level dummy variable for recreational legalization
 yrbs_data_combined[, "recreational"] <- ifelse((yrbs_data_combined$state.x == "Arizona")| # 1 for states that have legalized marijuana until 2021
-                                                      (yrbs_data_combined$state.x == "Alaska")|
-                                                      (yrbs_data_combined$state.x == "California")|
-                                                      (yrbs_data_combined$state.x == "Colorado")|
-                                                      (yrbs_data_combined$state.x == "Conneticut")|
-                                                      (yrbs_data_combined$year > 2023 & yrbs_data_combined$state.x == "Delaware")|
-                                                      (yrbs_data_combined$state.x == "Illinois")|
-                                                      (yrbs_data_combined$state.x == "Maine")| 
-                                                      (yrbs_data_combined$state.x == "Maryland")| 
-                                                      (yrbs_data_combined$state.x == "Massachusetts")| 
-                                                      (yrbs_data_combined$state.x == "Michigan")|
-                                                      (yrbs_data_combined$year > 2023 & yrbs_data_combined$state.x == "Minnesota")|
-                                                      (yrbs_data_combined$state.x == "Missouri")|
-                                                      (yrbs_data_combined$state.x == "Montana")|
-                                                      (yrbs_data_combined$state.x == "Nevada")|
-                                                      (yrbs_data_combined$state.x == "New Jersey")|
-                                                      (yrbs_data_combined$state.x == "New Mexico")|
-                                                      (yrbs_data_combined$year > 2023 & yrbs_data_combined$state.x == "Ohio")|
-                                                      (yrbs_data_combined$state.x == "Oregon")|
-                                                      (yrbs_data_combined$state.x == "Rhode Island")|
-                                                      (yrbs_data_combined$state.x == "Vermont")|
-                                                      (yrbs_data_combined$state.x == "Virginia")|
-                                                      (yrbs_data_combined$state.x == "Washington")|
-                                                      (yrbs_data_combined$state.x == "New York"), 1, 0) # no observations for Oregon, Vermont, Virginia and Washington
+                                                 (yrbs_data_combined$state.x == "Alaska")|
+                                                 (yrbs_data_combined$state.x == "California")|
+                                                 (yrbs_data_combined$state.x == "Colorado")|
+                                                 (yrbs_data_combined$state.x == "Conneticut")|
+                                                 (yrbs_data_combined$year > 2023 & yrbs_data_combined$state.x == "Delaware")|
+                                                 (yrbs_data_combined$state.x == "Illinois")|
+                                                 (yrbs_data_combined$state.x == "Maine")| 
+                                                 (yrbs_data_combined$year > 2022 & yrbs_data_combined$state.x == "Maryland")| 
+                                                 (yrbs_data_combined$state.x == "Massachusetts")| 
+                                                 (yrbs_data_combined$state.x == "Michigan")|
+                                                 (yrbs_data_combined$year > 2023 & yrbs_data_combined$state.x == "Minnesota")|
+                                                 (yrbs_data_combined$year > 2022 & yrbs_data_combined$state.x == "Missouri")|
+                                                 (yrbs_data_combined$state.x == "Montana")|
+                                                 (yrbs_data_combined$state.x == "Nevada")|
+                                                 (yrbs_data_combined$state.x == "New Jersey")|
+                                                 (yrbs_data_combined$state.x == "New Mexico")|
+                                                 (yrbs_data_combined$year > 2023 & yrbs_data_combined$state.x == "Ohio")|
+                                                 (yrbs_data_combined$state.x == "Oregon")|
+                                                 (yrbs_data_combined$year > 2022 & yrbs_data_combined$state.x == "Rhode Island")|
+                                                 (yrbs_data_combined$state.x == "Vermont")|
+                                                 (yrbs_data_combined$state.x == "Virginia")|
+                                                 (yrbs_data_combined$state.x == "Washington")|
+                                                 (yrbs_data_combined$state.x == "New York"), 1, 0) # no observations for Oregon, Vermont, Virginia and Washington
 
 # Create minority dummy out of race4
 yrbs_data_combined[, "minority"] <- ifelse(yrbs_data_combined$race4 == 2 | yrbs_data_combined$race4 == 3 | yrbs_data_combined$race4 == 4, 1, 0)

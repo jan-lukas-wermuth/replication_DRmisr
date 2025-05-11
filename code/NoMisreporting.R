@@ -28,8 +28,8 @@ source("functions/NoMisreporting_functions.R")
 # DR Estimation: Equation (11) ------------------------------------------
 for (j in c("norecreational", "recreational")) {
   for (k in 1:6) {
-    formula <- paste(paste("mar_life", k, sep = ""), "~", "year + sex + median_income + unemployment_rate + mar_prices_medium")
-    assign(paste("mar_life", "DR", j, k, sep = "_"), glm(formula = formula, family = binomial(link = "probit"), data = get(paste("yrbs_data_combined_20172019", j, "mar_life", sep = "_"))))
+    formula <- paste(paste("mar_life", k, sep = ""), "~", "minority + sex + age_18 + median_income + unemployment_rate + mar_prices_medium")
+    assign(paste("mar_life", "DR", j, k, sep = "_"), glm(formula = formula, family = binomial(link = "probit"), data = get(paste("yrbs_data_combined_201520172019", j, "mar_life", sep = "_"))))
     save(list = paste("mar_life", "DR", j, k, sep = "_"), file = paste("results/DR_results", paste("mar_life", "DR", j, k, ".RData", sep = "_"), sep = "/"))
   }
 }
@@ -69,7 +69,7 @@ ribbon_data <-
 p1 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.4,0.4))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.15,0.15))
 
 # Counterfactual Effect (1|1) - (1|0)
 x_values <- 0:4
@@ -85,7 +85,7 @@ ribbon_data <-
 p2 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.4,0.4))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.15,0.15))
 
 # Counterfactual Effect (1|0) - (0|0)
 x_values <- 0:4
@@ -101,7 +101,7 @@ ribbon_data <-
 p3 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.4,0.4))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.15,0.15))
 
 # Counterfactual Effect (1|1) - (0|1)
 x_values <- 0:4
@@ -117,7 +117,7 @@ ribbon_data <-
 p4 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.4,0.4))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.15,0.15))
 
 # Counterfactual Effect (0|1) - (0|0)
 x_values <- 0:4
@@ -133,7 +133,7 @@ ribbon_data <-
 p5 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.4,0.4))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.15,0.15))
 
 ggsave(filename = paste0("results/plots/Y_nomisr/OverallEffect_rec.pdf"), plot = p1, device = cairo_pdf)
 ggsave(filename = paste0("results/plots/Y_nomisr/CounterfactualEffect_(1|1)-(1|0)_rec.pdf"), plot = p2, device = cairo_pdf)
@@ -155,7 +155,7 @@ ribbon_data <-
 p6 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.4,0.4))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.15,0.15))
 
 # Counterfactual Effect (1|1) - (1|0)
 x_values <- 0:4
@@ -171,7 +171,7 @@ ribbon_data <-
 p7 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.4,0.4))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.15,0.15))
 
 # Counterfactual Effect (1|0) - (0|0)
 x_values <- 0:4
@@ -187,7 +187,7 @@ ribbon_data <-
 p8 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.4,0.4))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.15,0.15))
 
 # Counterfactual Effect (1|1) - (0|1)
 x_values <- 0:4
@@ -203,7 +203,7 @@ ribbon_data <-
 p9 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.4,0.4))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.15,0.15))
 
 # Counterfactual Effect (0|1) - (0|0)
 x_values <- 0:4
@@ -219,7 +219,7 @@ ribbon_data <-
 p10 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.4,0.4))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(-0.15,0.15))
 
 ggsave(filename = paste0("results/plots/Y_nomisr/OverallEffect_restr_rec.pdf"), plot = p6, device = cairo_pdf)
 ggsave(filename = paste0("results/plots/Y_nomisr/CounterfactualEffect_(1|1)-(1|0)_restr_rec.pdf"), plot = p7, device = cairo_pdf)
@@ -241,7 +241,7 @@ ribbon_data <-
 p11 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,0.6))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,1))
 
 # (1|0)
 x_values <- 0:4
@@ -257,7 +257,7 @@ ribbon_data <-
 p12 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,0.6))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,1))
 
 # (0|1)
 x_values <- 0:4
@@ -273,7 +273,7 @@ ribbon_data <-
 p13 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,0.6))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,1))
 
 # (1|1)
 x_values <- 0:4
@@ -289,7 +289,7 @@ ribbon_data <-
 p14 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,0.6))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,1))
 
 ggsave(filename = paste0("results/plots/Y_nomisr/(0|0)_rec.pdf"), plot = p11, device = cairo_pdf)
 ggsave(filename = paste0("results/plots/Y_nomisr/(1|0)_rec.pdf"), plot = p12, device = cairo_pdf)
@@ -310,7 +310,7 @@ ribbon_data <-
 p15 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,0.6))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,1))
 
 # (1|0)
 x_values <- 0:4
@@ -326,7 +326,7 @@ ribbon_data <-
 p16 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,0.6))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,1))
 
 # (0|1)
 x_values <- 0:4
@@ -342,7 +342,7 @@ ribbon_data <-
 p17 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,0.6))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,1))
 
 # (1|1)
 x_values <- 0:4
@@ -358,7 +358,7 @@ ribbon_data <-
 p18 <- ggplot2::ggplot(data = data) + 
   geom_segment(aes(x = x, y = y, xend = 1:5, yend = y)) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
-  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,0.6))
+  xlab("y") + ylab("p") + theme_bw() + ylim(c(0,1))
 
 ggsave(filename = paste0("results/plots/Y_nomisr/(0|0)_restr_rec.pdf"), plot = p15, device = cairo_pdf)
 ggsave(filename = paste0("results/plots/Y_nomisr/(1|0)_restr_rec.pdf"), plot = p16, device = cairo_pdf)

@@ -288,9 +288,9 @@ p14 <- ggplot2::ggplot(data = data) +
   xlab("y") + ylab("p") + theme_bw() + ylim(c(0,1))
 
 ggsave(filename = paste0("results/plots/C_misr/(0_0)_rec.pdf"), plot = p11, device = cairo_pdf, width = 5, height = 5)
-ggsave(filename = paste0("results/plots/C_mis/(1_0)_rec.pdf"), plot = p12, device = cairo_pdf, width = 5, height = 5)
-ggsave(filename = paste0("results/plots/C_mis/(0_1)_rec.pdf"), plot = p13, device = cairo_pdf, width = 5, height = 5)
-ggsave(filename = paste0("results/plots/C_mis/(1_1)_rec.pdf"), plot = p14, device = cairo_pdf, width = 5, height = 5)
+ggsave(filename = paste0("results/plots/C_misr/(1_0)_rec.pdf"), plot = p12, device = cairo_pdf, width = 5, height = 5)
+ggsave(filename = paste0("results/plots/C_misr/(0_1)_rec.pdf"), plot = p13, device = cairo_pdf, width = 5, height = 5)
+ggsave(filename = paste0("results/plots/C_misr/(1_1)_rec.pdf"), plot = p14, device = cairo_pdf, width = 5, height = 5)
 
 
 x_values <- 0:4
@@ -356,9 +356,9 @@ p18 <- ggplot2::ggplot(data = data) +
   geom_ribbon(data = ribbon_data, aes(x = x, ymin = y_l, ymax = y_u), alpha = 0.5) +
   xlab("y") + ylab("p") + theme_bw() + ylim(c(0,1))
 
-ggsave(filename = paste0("results/plots/C_mis/(0_0)_restr_rec.pdf"), plot = p15, device = cairo_pdf, width = 5, height = 5)
-ggsave(filename = paste0("results/plots/C_mis/(1_0)_restr_rec.pdf"), plot = p16, device = cairo_pdf, width = 5, height = 5)
-ggsave(filename = paste0("results/plots/C_mis/(0_1)_restr_rec.pdf"), plot = p17, device = cairo_pdf, width = 5, height = 5)
-ggsave(filename = paste0("results/plots/C_mis/(1_1)_restr_rec.pdf"), plot = p18, device = cairo_pdf, width = 5, height = 5)
+ggsave(filename = paste0("results/plots/C_misr/(0_0)_restr_rec.pdf"), plot = p15, device = cairo_pdf, width = 5, height = 5)
+ggsave(filename = paste0("results/plots/C_misr/(1_0)_restr_rec.pdf"), plot = p16, device = cairo_pdf, width = 5, height = 5)
+ggsave(filename = paste0("results/plots/C_misr/(0_1)_restr_rec.pdf"), plot = p17, device = cairo_pdf, width = 5, height = 5)
+ggsave(filename = paste0("results/plots/C_misr/(1_1)_restr_rec.pdf"), plot = p18, device = cairo_pdf, width = 5, height = 5)
 
 
